@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% block title %}Search Audible{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/search.css') }}?v=7">
+{% endblock %}
+
+{% block content %}
+<section class="search-page mx-auto px-6 py-8">
+    <div class="search-controls card bg-base-200 border border-base-content/10 shadow-md">
+        <div class="card-body gap-5">
+            <div class="join w-full search-form-container">
+                <input type="search" id="search-query" class="join-item input input-bordered input-lg w-full search-query-input" placeholder="Search for books, authors, series..." aria-label="Search query" value="{{ query or '' }}">
+                <button class="join-item btn btn-primary btn-lg" id="search-go" type="button">
+                    <i class="fas fa-search"></i>
+                    <span class="hidden sm:inline">Search</span>
+                </button>
+            </div>
+            <div class="search-toolbar flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div class="search-view-toggle join">
+                    <button id="search-view-grid" type="button" class="join-item btn btn-sm btn-ghost view-toggle-btn" aria-label="Grid view">
+                        <i class="fas fa-grip"></i>
+                        <span class="hidden sm:inline">Grid</span>
+                    </button>
+                    <button id="search-view-list" type="button" class="join-item btn btn-sm btn-ghost view-toggle-btn" aria-label="List view">
+                        <i class="fas fa-list"></i>
+                        <span class="hidden sm:inline">List</span>
+                    </button>
+                    <button id="search-view-table" type="button" class="join-item btn btn-sm btn-ghost view-toggle-btn" aria-label="Table view">
+                        <i class="fas fa-table"></i>
+                        <span class="hidden sm:inline">Table</span>
+                    </button>
+                </div>
+                <div class="search-filter-group flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                    <fieldset class="fieldset w-full sm:w-56 p-0 border-0">
+                        <legend class="fieldset-legend text-xs uppercase tracking-wide text-base-content/60 pb-1">Filter</legend>
+                        <select class="select select-bordered select-sm w-full" id="search-filter">
+                            <option value="">All Results</option>
+                            <option value="in_library">In Library</option>
+                            <option value="not_in_library">Not in Library</option>
+                            <option value="wanted">Wanted</option>
+                            <option value="downloadable">Downloadable</option>
+                        </select>
+                    </fieldset>
+                    <fieldset class="fieldset w-full sm:w-56 p-0 border-0">
+                        <legend class="fieldset-legend text-xs uppercase tracking-wide text-base-content/60 pb-1">Sort</legend>
+                        <select class="select select-bordered select-sm w-full" id="search-sort">
+                            <option value="relevance">Sort by Relevance</option>
+                            <option value="title">Sort by Title</option>
+                            <option value="author">Sort by Author</option>
+                            <option value="rating">Sort by Rating</option>
+                            <option value="release_date">Sort by Release Date</option>
+                        </select>
+                    </fieldset>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if search_stats.error %}
+    <div class="alert alert-error shadow-lg">
+        <i class="fas fa-triangle-exclamation"></i>
+        <span>{{ search_stats.error }}</span>
+    </div>
+    {% endif %}
+
+    <div id="search-stats" class="search-stats card bg-base-200 border border-base-content/10 shadow-sm" {% if results %}style="display: flex;"{% else %}style="display: none;"{% endif %}>
+        <div class="card-body flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div class="stats-info text-sm">
+                <span class="results-count font-semibold">{% if results %}{{ results|length }} result{% if results|length != 1 %}s{% endif %}{% if query %} for "{{ query }}"{% endif %}{% else %}0 results{% endif %}</span>
+                <span class="search-time text-base-content/60 block md:inline md:ml-3"></span>
+            </div>
+            {% if search_stats and not search_stats.error %}
+            <div class="search-stats-meta flex flex-wrap gap-3 text-xs uppercase tracking-wide text-base-content/60">
+                {% if search_stats.total_results is not none %}<span class="stats-pill"><i class="fas fa-list-ul"></i><span>Total: {{ search_stats.total_results }}</span></span>{% endif %}
+                {% if search_stats.in_library is not none %}<span class="stats-pill"><i class="fas fa-check-circle"></i><span>In Library: {{ search_stats.in_library }}</span></span>{% endif %}
+                {% if search_stats.wanted is defined %}<span class="stats-pill"><i class="fas fa-star"></i><span>Wanted: {{ search_stats.wanted }}</span></span>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="search-results" class="search-results-container" aria-live="polite" data-view="grid">
+        {% if results %}
+            {% for book in results %}
+                {% include 'partials/search_card_classic.html' %}
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <div id="search-empty" class="search-empty" style="display: none;">
+        <div class="empty-state card bg-base-200 border border-base-content/10 shadow-lg">
+            <div class="card-body items-center text-center gap-4">
+                <i class="fas fa-search text-4xl text-base-content/40"></i>
+                <h3 class="text-xl font-semibold">No results found</h3>
+                <p>No books found for that search. Try a different term or check the spelling.</p>
+                <div class="empty-suggestions">
+                    <h4 class="font-medium">Search tips</h4>
+                    <ul class="list-disc text-left text-sm text-base-content/70 space-y-1">
+                        <li>Search by author name</li>
+                        <li>Try a series title</li>
+                        <li>Use partial book titles</li>
+                        <li>Check spelling before retrying</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    <div class="search-welcome" style="display: none;">
+        <div class="welcome-inner">
+            <div class="welcome-icon"><i class="fas fa-headphones"></i></div>
+            <h3>Search the Audible catalog</h3>
+            <p>Find books, authors, and series to add to your library. Enter a title, author, or series above to get started.</p>
+        </div>
+    </div>
+    </div>
+
+    <div id="search-loading" class="search-loading" style="display: none;">
+        <div class="loading loading-lg text-primary"></div>
+        <p class="text-base-content/70">Searching Audible...</p>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script id="search-bootstrap" type="application/json">{{ (results or []) | tojson }}</script>
+<script id="search-libraries" type="application/json">{{ (libraries or []) | tojson }}</script>
+<script src="{{ url_for('static', filename='js/search.js') }}?v=3" defer></script>
+<script>
+function searchExample(query) {
+    const searchInput = document.getElementById('search-query');
+    if (!searchInput) {
+        return;
+    }
+    searchInput.value = query;
+    if (typeof window.__aaSearch === 'function') {
+        window.__aaSearch();
+    } else {
+        const trigger = document.getElementById('search-go');
+        trigger?.click();
+    }
+}
+</script>
+{% endblock %}

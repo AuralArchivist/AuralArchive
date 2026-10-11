@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - AuralArchive</title>
+    <script>
+        (function() {
+            try {
+                var savedTheme = localStorage.getItem('theme');
+                // Themes that no longer exist fall back to the default.
+                if (savedTheme === 'blueberry' || savedTheme === 'oceanbreeze') {
+                    savedTheme = 'dark';
+                    localStorage.setItem('theme', savedTheme);
+                }
+                if (savedTheme) {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                }
+            } catch (err) {
+                console.warn('Theme preload failed:', err);
+            }
+        })();
+    </script>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}?v=7">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/font-awesome/css/all.min.css') }}">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/outfit.css') }}">
+    
+    <style>
+        body { font-family: 'Outfit', system-ui, -apple-system, sans-serif; }
+        .logo-gradient {
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .req-met { color: var(--color-success); }
+        .req-unmet { color: oklch(from var(--color-base-content) l c h / 0.5); }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6 bg-base-200">
+    <div class="w-full max-w-5xl">
+        <div class="card bg-base-100 shadow-2xl">
+            <div class="card-body gap-6">
+
+                <div class="text-center">
+                    <img src="{{ url_for('static', filename='images/auralarchive_logo.png') }}" alt="" class="mx-auto mb-3 rounded-xl" style="width:7.5rem;height:7.5rem;">
+                    <h1 class="text-5xl font-bold tracking-tight logo-gradient">AuralArchive</h1>
+                    <p class="text-sm text-base-content/60 mt-1">Welcome! Let's get you set up.</p>
+                </div>
+
+                <div role="alert" class="alert alert-info">
+                    <i class="fas fa-circle-info shrink-0"></i>
+                    <span>Create your admin account to secure AuralArchive</span>
+                </div>
+
+                {% if error %}
+                <div role="alert" class="alert alert-error">
+                    <i class="fas fa-circle-xmark shrink-0"></i>
+                    <span>{{ error }}</span>
+                </div>
+                {% endif %}
+
+                <form method="POST" action="{{ url_for('auth.setup') }}" class="space-y-4">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+
+                        <div class="space-y-4">
+                            <fieldset class="fieldset gap-1">
+                                <legend class="fieldset-legend text-xs uppercase tracking-wide">Username</legend>
+                                <label class="input input-bordered w-full">
+                                    <i class="fas fa-user opacity-50 text-sm"></i>
+                                    <input type="text" name="username" placeholder="Enter username"
+                                           required minlength="3" autocomplete="username" autofocus />
+                                </label>
+                                <p class="label text-xs text-base-content/50">At least 3 characters</p>
+                            </fieldset>
+
+                            <fieldset class="fieldset gap-1">
+                                <legend class="fieldset-legend text-xs uppercase tracking-wide">Password</legend>
+                                <label class="input input-bordered w-full">
+                                    <i class="fas fa-lock opacity-50 text-sm"></i>
+                                    <input type="password" name="password" id="password"
+                                           placeholder="Enter password" required minlength="6"
+                                           maxlength="20" autocomplete="new-password" />
+                                </label>
+                                <div class="space-y-1 mt-1 text-xs text-base-content/50">
+                                    <p class="font-medium">Password requirements:</p>
+                                    <div id="req-length" class="req-unmet flex items-center gap-2">
+                                        <span class="req-icon">○</span><span>At least 6 characters</span>
+                                    </div>
+                                    <div id="req-maxlength" class="req-unmet flex items-center gap-2">
+                                        <span class="req-icon">○</span><span>Maximum 20 characters</span>
+                                    </div>
+                                    <div id="req-match" class="req-unmet flex items-center gap-2">
+                                        <span class="req-icon">○</span><span>Passwords match</span>
+                                    </div>
+                                </div>
+                            </fieldset>
+
+                            <fieldset class="fieldset gap-1">
+                                <legend class="fieldset-legend text-xs uppercase tracking-wide">Confirm Password</legend>
+                                <label class="input input-bordered w-full">
+                                    <i class="fas fa-lock opacity-50 text-sm"></i>
+                                    <input type="password" name="confirm_password" id="confirm_password"
+                                           placeholder="Confirm password" required minlength="6"
+                                           maxlength="20" autocomplete="new-password" />
+                                </label>
+                            </fieldset>
+                        </div>
+
+                        <div class="rounded-box border-2 border-warning/30 bg-warning/5 p-4 h-full overflow-y-auto max-h-72 lg:max-h-none">
+                            <p class="text-warning font-bold text-center mb-3"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> DISCLAIMER AND TERMS OF USE</p>
+                            <p class="text-xs leading-relaxed text-base-content/80 text-justify">
+                                This software is intended solely for downloading your own legally owned titles and copyright-free or public domain audio content.
+                                This software is provided "AS IS," without warranty of any kind, either express or implied, including but not limited to the implied warranties of merchantability, fitness for a particular purpose, or non-infringement.
+                                <br><br>
+                                The developer(s) make no representations or warranties regarding the accuracy, functionality, reliability, or suitability of this software for any purpose.
+                                <br><br>
+                                You acknowledge and agree that you assume full responsibility for how you choose to use this software. The developer(s) are not responsible for any misuse of this software and do not endorse or condone copyright infringement or any illegal activity.
+                                <br><br>
+                                You are solely responsible for ensuring compliance with all applicable local, state, national, and international laws, including copyright laws and intellectual property rights, and for obtaining proper authorization before downloading any content.
+                                <br><br>
+                                The developer(s) shall not be held liable for any legal consequences, damages, losses, or claims arising from your use or misuse of this software.
+                                <br><br>
+                                By using this software, you acknowledge that you have read, understood, and agree to these terms, and you accept all risks associated with its use.
+                                <br><br>
+                                <strong>USE AT YOUR OWN RISK.</strong>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="border border-base-content/10 rounded-box bg-base-200/50 p-4 space-y-4">
+                        <label class="cursor-pointer flex items-start gap-3">
+                            <input type="checkbox" id="accept_terms" name="accept_terms"
+                                   class="checkbox checkbox-primary mt-0.5 shrink-0" required />
+                            <span class="text-sm min-w-0 break-words">
+                                I have read, understood, and agree to the disclaimer and terms of use.
+                                I acknowledge that I am solely responsible for ensuring my use of this
+                                software complies with all applicable laws.
+                            </span>
+                        </label>
+                        <p id="termsError" class="text-error text-sm hidden" role="alert">
+                            You must accept the disclaimer and terms of use to continue.
+                        </p>
+                        <button type="submit" id="submitBtn" class="btn btn-primary w-full" disabled>
+                            <i class="fas fa-check"></i>
+                            Create Account & Continue
+                        </button>
+                    </div>
+                </form>
+
+                <div class="divider my-0"></div>
+                <p class="text-center text-xs text-base-content/50 flex items-center justify-center gap-2">
+                    <i class="fas fa-shield-halved text-[10px]"></i>
+                    Your password is securely hashed and stored locally
+                </p>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const password = document.getElementById('password');
+        const confirmPassword = document.getElementById('confirm_password');
+        const acceptTerms = document.getElementById('accept_terms');
+        const submitBtn = document.getElementById('submitBtn');
+        const reqLength = document.getElementById('req-length');
+        const reqMaxLength = document.getElementById('req-maxlength');
+        const reqMatch = document.getElementById('req-match');
+
+        function setReq(el, met) {
+            el.querySelector('.req-icon').textContent = met ? '✓' : '○';
+            el.className = el.className.replace(/req-met|req-unmet/g, '').trim()
+                + (met ? ' req-met' : ' req-unmet');
+        }
+
+        function validate() {
+            const pw = password.value;
+            const cpw = confirmPassword.value;
+            setReq(reqLength, pw.length >= 6);
+            setReq(reqMaxLength, pw.length > 0 && pw.length <= 20);
+            setReq(reqMatch, pw.length > 0 && cpw.length > 0 && pw === cpw);
+            confirmPassword.setCustomValidity(cpw.length > 0 && pw !== cpw ? "Passwords don't match" : '');
+        }
+
+        function updateBtn() {
+            submitBtn.disabled = !acceptTerms.checked;
+            if (acceptTerms.checked) {
+                document.getElementById('termsError').classList.add('hidden');
+            }
+        }
+
+        password.addEventListener('input', validate);
+        confirmPassword.addEventListener('input', validate);
+        acceptTerms.addEventListener('change', updateBtn);
+
+        document.querySelector('form').addEventListener('submit', function(e) {
+            if (!acceptTerms.checked) {
+                e.preventDefault();
+                document.getElementById('termsError').classList.remove('hidden');
+            }
+        });
+
+        validate();
+    </script>
+</body>
+</html>

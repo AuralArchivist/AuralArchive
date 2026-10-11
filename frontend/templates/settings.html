@@ -1,0 +1,1802 @@
+{% extends 'base.html' %}
+{% block title %}Settings · AuralArchive{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}?v=22">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/connected-services.css') }}?v=1">
+{% endblock %}
+
+{% block content %}
+<div class="w-full space-y-0 aa-settings">
+    <div class="save-toolbar -mx-4 sm:-mx-6 lg:-mx-10 -mt-6 mb-6 px-4 sm:px-6 lg:px-10">
+        <div class="flex items-center gap-4">
+            <span class="hidden sm:block" style="width:3px;height:1.5rem;border-radius:.25rem;background:var(--color-primary);"></span>
+            <h1 class="text-lg font-semibold" id="settingsSectionTitle">General</h1>
+            <span id="configUpdatedAt" class="text-xs text-base-content/50 pl-4" style="border-left:1px solid color-mix(in oklch, var(--color-base-content) 10%, transparent);"></span>
+            <div class="text-xs text-warning flex items-center gap-1.5 hidden" id="unsavedIndicator" role="status">
+                <span>Unsaved changes</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" id="refreshSettings" class="btn btn-ghost btn-sm gap-2">
+                <span>Refresh</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="settingsPanel-general" class="settings-panel active">
+        <div class="aa-phead">
+            <div class="aa-pl">
+                <div>
+                    <h3>General</h3>
+                    <p class="aa-pdesc">Adjust logging verbosity and application appearance.</p>
+                </div>
+            </div>
+        </div>
+
+        <form id="generalForm" data-status-target="generalStatus" novalidate>
+            <div class="aa-card">
+                <div class="aa-card-head"><div class="aa-ttl"><b>Appearance</b></div></div>
+                <div class="aa-card-body">
+                    <div class="aa-row">
+                        <div class="aa-rl"><label class="aa-lbl" for="app_theme">Theme</label><div class="aa-hint">Preview changes instantly; save to keep the preference.</div></div>
+                        <div class="aa-rc">
+                            <select id="app_theme" class="select select-bordered w-full">
+                                <option value="dark">Dark</option>
+                                <option value="light">Light</option>
+                                <option value="nord">Nord</option>
+                                <option value="enterprise">Enterprise</option>
+                                <option value="midnight-navy">Midnight Navy</option>
+                                <option value="graphite-azure">Graphite Azure</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="aa-card-foot">
+                    <span id="generalStatus" class="aa-helper"></span>
+                    <button type="submit" class="btn btn-primary btn-sm gap-2">
+                        <span>Save General Settings</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="aa-eyebrow">Application <span class="aa-ln"></span></div>
+        <div class="aa-card">
+            <div class="aa-card-body">
+                <div class="aa-row" style="border:none;">
+                    <div class="aa-rl flex items-center gap-3">
+                        <div>
+                            <p class="text-sm font-medium">AuralArchive</p>
+                            <p class="aa-hint">Version {{ app_version }}</p>
+                            <p id="updateResultMsg" class="text-xs mt-1 hidden"></p>
+                        </div>
+                    </div>
+                    <div class="aa-rc">
+                        <button type="button" id="checkUpdatesBtn" class="btn btn-outline btn-sm gap-2 shrink-0">
+                            <span>Check for Updates</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsPanel-storage" class="settings-panel">
+        <div class="aa-phead">
+            <div class="aa-pl">
+                <div>
+                    <h3>Storage</h3>
+                    <p class="aa-pdesc">Where AuralArchive keeps your books and working files.</p>
+                </div>
+            </div>
+        </div>
+        {% include 'partials/storage_panel.html' %}
+    </div>
+
+    <div id="settingsPanel-metadata" class="settings-panel">
+        <div class="aa-phead">
+            <div class="aa-pl">
+                <div>
+                    <h3>Metadata</h3>
+                    <p class="aa-pdesc">Keep your library, series, books and authors up to date automatically.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="mrNotices" class="aa-store-notices" aria-live="polite"></div>
+
+        <form id="metadataRefreshForm" class="aa-card" data-own-dirty novalidate>
+            <div class="aa-card-head">
+                <div class="aa-ttl">
+                    <b>Scheduled Refresh</b>
+                    <span class="aa-sub">Checks Audible for new titles and changed details</span>
+                </div>
+                <label class="flex items-center gap-2 cursor-pointer text-xs" for="mr_enabled">
+                    <span class="aa-hint">Automatic</span>
+                    <input id="mr_enabled" type="checkbox" class="toggle toggle-success" />
+                </label>
+            </div>
+
+            <div class="aa-card-body">
+                <div id="mrRunning" class="aa-mr-running hidden" role="status">
+                    <div class="aa-mr-running-top">
+                        <span><span class="loading loading-spinner loading-xs" aria-hidden="true"></span> <b id="mrRunningLabel"></b> <span id="mrRunningCount" class="aa-hint"></span></span>
+                        <button type="button" id="mrStop" class="btn btn-ghost btn-xs">Stop</button>
+                    </div>
+                    <progress id="mrProgress" class="progress progress-primary w-full" value="0" max="100"></progress>
+                </div>
+
+                {% set mr_jobs = [
+                    ('library', 'Library', 'Moved, missing and new books in your library folder'),
+                    ('series', 'Series', 'New titles and series details'),
+                    ('books', 'Books', 'Book details, ratings and covers'),
+                    ('authors', 'Authors', 'Author bios and photos'),
+                    ('hardcover', 'Hardcover', 'Link books to Hardcover for shelf status and ratings'),
+                    ('calendar', 'Release calendar', 'Upcoming titles for your watched tags and keywords'),
+                ] %}
+                {% for job, label, desc in mr_jobs %}
+                <div class="aa-store-row" data-mr-job="{{ job }}">
+                    <label class="aa-store-name" for="mr_{{ job }}_interval">
+                        <span><b>{{ label }}</b><small>{{ desc }}</small></span>
+                    </label>
+                    <div class="aa-store-ctl">
+                        <div class="aa-store-input">
+                            <select id="mr_{{ job }}_interval" class="select select-bordered select-sm aa-mr-select" data-mr-field="{{ job }}_interval_days">
+                                <option value="0">Off</option>
+                                <option value="1">Daily</option>
+                                <option value="3">Every 3 days</option>
+                                <option value="7">Weekly</option>
+                                <option value="14">Every 2 weeks</option>
+                                <option value="30">Monthly</option>
+                            </select>
+                            <button type="button" class="btn btn-ghost btn-sm" data-mr-run="{{ job }}">
+                                Run now
+                            </button>
+                        </div>
+                        <div class="aa-store-meta" data-role="meta"></div>
+                        <div class="aa-store-flags" data-role="flags"></div>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <div class="aa-store-row">
+                    <label class="aa-store-name" for="mr_delay">
+                        <span><b>Pace</b><small>Pause between Audible requests</small></span>
+                    </label>
+                    <div class="aa-store-ctl">
+                        <div class="aa-store-input">
+                            <select id="mr_delay" class="select select-bordered select-sm aa-mr-select" data-mr-field="request_delay_seconds">
+                                <option value="1">1 second (fastest)</option>
+                                <option value="2">2 seconds</option>
+                                <option value="5">5 seconds</option>
+                                <option value="10">10 seconds (gentlest)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="aa-card-foot">
+                <span id="mrStatus" class="aa-hint" role="status"></span>
+                <button type="submit" id="mrSave" class="btn btn-primary btn-sm" disabled>Save</button>
+            </div>
+        </form>
+
+        <div id="backgroundTasks" class="aa-card">
+            <div class="aa-card-head">
+                <div class="aa-ttl">
+                    <b>Background Tasks</b>
+                    <span class="aa-sub">Everything AuralArchive runs on its own schedule</span>
+                </div>
+            </div>
+            <div class="aa-card-body" id="backgroundTaskRows" aria-live="polite">
+                <span class="aa-hint">Loading…</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsPanel-download-clients" class="settings-panel">
+        <div class="aa-phead">
+            <div class="aa-pl">
+                <div>
+                    <h3>Download Clients</h3>
+                    <p class="aa-pdesc">Manage torrent and Usenet download clients. Add a client to make it available to download workflows.</p>
+                </div>
+            </div>
+        </div>
+        <div class="aa-split">
+            <aside>
+                <div class="aa-list-head">
+                    <span class="aa-lt">Configured Clients</span>
+                    <button type="button" id="downloadClientAddButton" class="btn btn-outline btn-xs">
+                        <span>Add</span>
+                    </button>
+                </div>
+                <div id="downloadClientsList" class="aa-list">
+                    <div class="aa-list-empty">
+                        No download clients configured yet.
+                    </div>
+                </div>
+            </aside>
+            <form id="downloadClientForm" data-status-target="downloadClientStatus" novalidate>
+                <div id="downloadClientEmptyState" class="aa-list-empty" style="padding:28px;">
+                    Select or add a download client to edit connection details.
+                </div>
+                <div id="downloadClientEditor" class="aa-card hidden" style="margin:0;">
+                    <input type="hidden" id="download_client_key" />
+                    <div class="aa-card-head">
+                        <div class="aa-ttl"><b id="downloadClientHeading">New Client</b><span id="downloadClientHelper" class="aa-sub">Fill in the details below and save to activate this client.</span></div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="downloadClientTestButton" class="btn btn-outline btn-xs gap-2">
+                                <span>Test</span>
+                            </button>
+                            <button type="button" id="downloadClientDeleteButton" class="btn btn-outline btn-xs btn-error gap-2 hidden">
+                                <span>Delete</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="aa-card-body">
+                        <div class="aa-grid">
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="download_client_type">Client Type</label>
+                                <select id="download_client_type" class="select select-bordered w-full">
+                                    <optgroup label="Torrent">
+                                        <option value="qbittorrent">qBittorrent</option>
+                                    </optgroup>
+                                    <optgroup label="Usenet">
+                                        <option value="sabnzbd">SABnzbd</option>
+                                        <option value="nzbget">NZBGet</option>
+                                    </optgroup>
+                                </select>
+                                <span class="aa-hint">Torrent: qBittorrent. Usenet: SABnzbd, NZBGet.</span>
+                            </div>
+                            <div class="aa-field justify-end">
+                                <div class="aa-row aa-tog" style="padding:0;border:none;">
+                                    <div class="aa-rl"><label class="aa-lbl" for="download_client_enabled">Enable client</label></div>
+                                    <div class="aa-rc"><input id="download_client_enabled" type="checkbox" class="toggle toggle-success" /></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div data-client-panel="qbittorrent" class="aa-grid" style="padding-top:0;">
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="qb_host">Host</label>
+                                <input id="qb_host" type="text" class="input input-bordered w-full" placeholder="127.0.0.1" />
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="qb_port">Port</label>
+                                <input id="qb_port" type="number" min="1" max="65535" step="1" class="input input-bordered w-full" placeholder="8080" />
+                            </div>
+                            <div class="aa-field aa-c2">
+                                <label class="aa-flabel" for="qb_auth_mode">Authentication Method</label>
+                                <select id="qb_auth_mode" class="select select-bordered w-full">
+                                    <option value="api_key">API Key (qBittorrent 5.2.0 or newer, recommended)</option>
+                                    <option value="credentials">Username &amp; Password (removed in AuralArchive 1.1)</option>
+                                </select>
+                                <span class="aa-hint">Only the selected method is used and saved; the other's details are cleared when you save.</span>
+                            </div>
+                            <div class="aa-field aa-c2" data-qb-credentials>
+                                <div class="aa-store-flag warning"><span>Username and password sign-in is deprecated and will be removed in AuralArchive 1.1. Create an API key in qBittorrent (5.2.0 or newer) under Preferences › WebUI and switch to it.</span></div>
+                            </div>
+                            <div class="aa-field" data-qb-credentials>
+                                <label class="aa-flabel" for="qb_username">Username</label>
+                                <input id="qb_username" type="text" class="input input-bordered w-full" />
+                            </div>
+                            <div class="aa-field" data-qb-credentials>
+                                <label class="aa-flabel" for="qb_password">Password</label>
+                                <input id="qb_password" type="password" class="input input-bordered w-full" autocomplete="off" />
+                            </div>
+                            <div class="aa-field aa-c2 hidden" data-qb-api-key>
+                                <label class="aa-flabel" for="qb_api_key">API Key</label>
+                                <input id="qb_api_key" type="password" class="input input-bordered w-full" autocomplete="off" placeholder="qbt_..." />
+                                <span class="aa-hint">Generate in qBittorrent → Preferences → WebUI → API Key section.</span>
+                            </div>
+                            <div class="aa-field aa-c2">
+                                <label class="aa-flabel" for="qb_category">Category</label>
+                                <input id="qb_category" type="text" class="input input-bordered w-full" placeholder="auralarchive" />
+                            </div>
+                            <div class="aa-c2">
+                                <div class="aa-row aa-tog" style="border:none;">
+                                    <div class="aa-rl"><label class="aa-lbl" for="qb_path_mapping_enabled">Enable remote path mappings</label></div>
+                                    <div class="aa-rc"><input id="qb_path_mapping_enabled" type="checkbox" class="toggle toggle-success" /></div>
+                                </div>
+                            </div>
+                            <div class="aa-field aa-c2" data-qb-path-mappings>
+                                <span class="aa-flabel">Path mappings</span>
+                                <div id="qbPathMappings" class="space-y-2"></div>
+                                <div class="flex items-center justify-between mt-2">
+                                    <p class="aa-hint">Map qBittorrent's internal paths to the host paths AuralArchive can access.</p>
+                                    <button type="button" id="qbPathMappingAdd" class="btn btn-outline btn-xs">
+                                        <span>Add Mapping</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div data-client-panel="sabnzbd" class="aa-grid hidden" style="padding-top:0;">
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="sabnzbd_host">Host</label>
+                                <input id="sabnzbd_host" type="text" class="input input-bordered w-full" placeholder="127.0.0.1" />
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="sabnzbd_port">Port</label>
+                                <input id="sabnzbd_port" type="number" min="1" max="65535" step="1" class="input input-bordered w-full" placeholder="8080" />
+                            </div>
+                            <div class="aa-field aa-c2">
+                                <label class="aa-flabel" for="sabnzbd_api_key">API Key</label>
+                                <input id="sabnzbd_api_key" type="password" class="input input-bordered w-full" autocomplete="off" placeholder="SABnzbd API key" />
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="sabnzbd_url_base">URL Base</label>
+                                <input id="sabnzbd_url_base" type="text" class="input input-bordered w-full" placeholder="/api" />
+                                <span class="aa-hint">Default: /api (use /sabnzbd/api if behind a reverse proxy with URL base configured)</span>
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="sabnzbd_category">Category</label>
+                                <input id="sabnzbd_category" type="text" class="input input-bordered w-full" placeholder="audiobooks" />
+                            </div>
+                            <div class="aa-c2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="aa-row aa-tog" style="border:none;"><div class="aa-rl"><label class="aa-lbl" for="sabnzbd_use_ssl">Use SSL</label></div><div class="aa-rc"><input id="sabnzbd_use_ssl" type="checkbox" class="toggle toggle-success" /></div></div>
+                                <div class="aa-row aa-tog" style="border:none;"><div class="aa-rl"><label class="aa-lbl" for="sabnzbd_verify_cert">Verify certificate</label></div><div class="aa-rc"><input id="sabnzbd_verify_cert" type="checkbox" class="toggle toggle-success" checked /></div></div>
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="sabnzbd_remote_path">SABnzbd Download Path (remote)</label>
+                                <input id="sabnzbd_remote_path" type="text" class="input input-bordered w-full" placeholder="/downloads" />
+                                <span class="aa-hint">Path as SABnzbd sees it (e.g. /downloads). Leave blank if paths match.</span>
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="sabnzbd_local_path">SABnzbd Download Path (local)</label>
+                                <input id="sabnzbd_local_path" type="text" class="input input-bordered w-full" placeholder="/mnt/downloads" />
+                                <span class="aa-hint">Corresponding path on this machine.</span>
+                            </div>
+                        </div>
+
+                        <div data-client-panel="nzbget" class="aa-grid hidden" style="padding-top:0;">
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="nzbget_host">Host</label>
+                                <input id="nzbget_host" type="text" class="input input-bordered w-full" placeholder="127.0.0.1" />
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="nzbget_port">Port</label>
+                                <input id="nzbget_port" type="number" min="1" max="65535" step="1" class="input input-bordered w-full" placeholder="6789" />
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="nzbget_username">Username</label>
+                                <input id="nzbget_username" type="text" class="input input-bordered w-full" placeholder="nzbget" />
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="nzbget_password">Password</label>
+                                <input id="nzbget_password" type="password" class="input input-bordered w-full" autocomplete="off" />
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="nzbget_category">Category</label>
+                                <input id="nzbget_category" type="text" class="input input-bordered w-full" placeholder="audiobooks" />
+                            </div>
+                            <div class="aa-c2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="aa-row aa-tog" style="border:none;"><div class="aa-rl"><label class="aa-lbl" for="nzbget_use_ssl">Use SSL</label></div><div class="aa-rc"><input id="nzbget_use_ssl" type="checkbox" class="toggle toggle-success" /></div></div>
+                                <div class="aa-row aa-tog" style="border:none;"><div class="aa-rl"><label class="aa-lbl" for="nzbget_verify_cert">Verify certificate</label></div><div class="aa-rc"><input id="nzbget_verify_cert" type="checkbox" class="toggle toggle-success" checked /></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="aa-card-foot">
+                        <span id="downloadClientStatus" class="aa-helper"></span>
+                        <button type="submit" class="btn btn-primary btn-sm gap-2">
+                            <span>Save Client</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="settingsPanel-download-management" class="settings-panel">
+        <div class="aa-phead">
+            <div class="aa-pl">
+                <div>
+                    <h3>Download Management</h3>
+                    <p class="aa-pdesc">Control automatic searching, queue behavior, retry policies, and staging directories.</p>
+                </div>
+            </div>
+        </div>
+        <form id="downloadManagementForm" data-status-target="downloadManagementStatus" novalidate>
+            <div class="aa-card">
+                <div class="aa-card-head"><div class="aa-ttl"><b>Automatic Downloads</b></div></div>
+                <div class="aa-card-body">
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="auto_download_enabled">Enable automatic downloads</label><div class="aa-hint">Enable or disable the automatic search and download engine.</div></div><div class="aa-rc"><input id="auto_download_enabled" type="checkbox" class="toggle toggle-success" /></div></div>
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="schedule_window_enabled">Restrict to schedule window</label><div class="aa-hint">Only run automatic search cycles during the hours below (e.g. off-peak bandwidth).</div></div><div class="aa-rc"><input id="schedule_window_enabled" type="checkbox" class="toggle toggle-success" /></div></div>
+                    <div class="aa-grid">
+                        <div class="aa-field"><label class="aa-flabel" for="schedule_start_hour">Start hour (0-23)</label><input id="schedule_start_hour" type="number" min="0" max="23" step="1" class="input input-bordered w-full" placeholder="0" /></div>
+                        <div class="aa-field"><label class="aa-flabel" for="schedule_end_hour">End hour (0-24)</label><input id="schedule_end_hour" type="number" min="0" max="24" step="1" class="input input-bordered w-full" placeholder="24" /><span class="aa-hint">Start &gt; end wraps overnight, e.g. 22 to 6.</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="aa-card">
+                <div class="aa-card-head"><div class="aa-ttl"><b>Download Workflow</b><span class="aa-sub">Queue behavior, cleanup policies, and staging directories</span></div></div>
+                <div class="aa-card-body">
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="dm_seeding_enabled">Enable seeding</label></div><div class="aa-rc"><input id="dm_seeding_enabled" type="checkbox" class="toggle toggle-success" /></div></div>
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="dm_delete_source">Delete source after import</label></div><div class="aa-rc"><input id="dm_delete_source" type="checkbox" class="toggle toggle-success" /></div></div>
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="import_overwrite_existing">Overwrite existing library files</label><div class="aa-hint">If enabled, importer will replace any existing destination file.</div></div><div class="aa-rc"><input id="import_overwrite_existing" type="checkbox" class="toggle toggle-success" /></div></div>
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="dm_auto_start_monitoring">Auto start monitoring</label></div><div class="aa-rc"><input id="dm_auto_start_monitoring" type="checkbox" class="toggle toggle-success" /></div></div>
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="dm_monitor_seeding">Monitor seeding downloads</label></div><div class="aa-rc"><input id="dm_monitor_seeding" type="checkbox" class="toggle toggle-success" /></div></div>
+                    <div class="aa-grid">
+                        <div class="aa-field"><label class="aa-flabel" for="dm_max_concurrent_downloads">Max concurrent downloads</label><input id="dm_max_concurrent_downloads" type="number" min="1" step="1" class="input input-bordered w-full" placeholder="2" /></div>
+                        <div class="aa-field"><label class="aa-flabel" for="dm_queue_priority">Default queue priority</label><input id="dm_queue_priority" type="number" min="0" max="10" step="1" class="input input-bordered w-full" placeholder="5" /></div>
+                        <div class="aa-field"><label class="aa-flabel" for="dm_monitor_interval">Polling interval (seconds)</label><input id="dm_monitor_interval" type="number" min="1" step="1" class="input input-bordered w-full" placeholder="2" /></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="aa-card">
+                <div class="aa-card-head"><div class="aa-ttl"><b>Disk Space</b><span class="aa-sub">Refuse new downloads once free space runs low</span></div></div>
+                <div class="aa-card-body">
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="dm_skip_free_space_check">Skip disk space check</label><div class="aa-hint">Bypass the floor entirely - not recommended.</div></div><div class="aa-rc"><input id="dm_skip_free_space_check" type="checkbox" class="toggle toggle-success" /></div></div>
+                    <div class="aa-grid">
+                        <div class="aa-field"><label class="aa-flabel" for="dm_minimum_free_space">Minimum free space</label><input id="dm_minimum_free_space" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="100" /></div>
+                        <div class="aa-field"><label class="aa-flabel" for="dm_free_space_unit">Unit</label>
+                            <select id="dm_free_space_unit" class="select select-bordered w-full">
+                                <option value="MB">MB</option>
+                                <option value="GB">GB</option>
+                                <option value="TB">TB</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="aa-card">
+                <div class="aa-card-head"><div class="aa-ttl"><b>Tracker Ratio &amp; Freeleech Rules</b><span class="aa-sub">Applies to ratio-tracked private trackers (MyAnonamouse) during automatic search</span></div></div>
+                <div class="aa-card-body">
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="dm_ratio_protection_enabled">Ratio protection</label><div class="aa-hint">Skip a candidate if grabbing it would drop account ratio below the floor.</div></div><div class="aa-rc"><input id="dm_ratio_protection_enabled" type="checkbox" class="toggle toggle-success" /></div></div>
+                    <div class="aa-grid">
+                        <div class="aa-field"><label class="aa-flabel" for="dm_ratio_floor">Minimum ratio floor</label><input id="dm_ratio_floor" type="number" min="0" step="0.1" class="input input-bordered w-full" placeholder="1.0" /></div>
+                    </div>
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="dm_prefer_freeleech">Prefer freeleech/VIP results</label><div class="aa-hint">Promote freeleech results ahead of others regardless of confidence gap.</div></div><div class="aa-rc"><input id="dm_prefer_freeleech" type="checkbox" class="toggle toggle-success" /></div></div>
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="dm_hold_non_freeleech">Hold for freeleech</label><div class="aa-hint">Refuse a non-freeleech grab until the hold period elapses, then fall back to the best available match.</div></div><div class="aa-rc"><input id="dm_hold_non_freeleech" type="checkbox" class="toggle toggle-success" /></div></div>
+                    <div class="aa-grid">
+                        <div class="aa-field"><label class="aa-flabel" for="dm_freeleech_hold_days">Freeleech hold (days)</label><input id="dm_freeleech_hold_days" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="14" /></div>
+                    </div>
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="dm_duplicate_grab_protection">Duplicate-grab protection</label><div class="aa-hint">Skip results already snatched on that tracker.</div></div><div class="aa-rc"><input id="dm_duplicate_grab_protection" type="checkbox" class="toggle toggle-success" /></div></div>
+                </div>
+            </div>
+
+            <div class="aa-card">
+                <div class="aa-card-head"><div class="aa-ttl"><b>Retry Policy</b></div></div>
+                <div class="aa-card-body">
+                    <div class="aa-grid">
+                        <div class="aa-field"><label class="aa-flabel" for="dm_retry_search">Search retry attempts</label><input id="dm_retry_search" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="3" /></div>
+                        <div class="aa-field"><label class="aa-flabel" for="dm_retry_download">Download retry attempts</label><input id="dm_retry_download" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="2" /></div>
+                        <div class="aa-field"><label class="aa-flabel" for="dm_retry_conversion">Conversion retry attempts</label><input id="dm_retry_conversion" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="1" /></div>
+                        <div class="aa-field"><label class="aa-flabel" for="dm_retry_import">Import retry attempts</label><input id="dm_retry_import" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="2" /></div>
+                        <div class="aa-field aa-c2"><label class="aa-flabel" for="dm_retry_backoff">Retry backoff (minutes)</label><input id="dm_retry_backoff" type="number" min="1" step="1" class="input input-bordered w-full" placeholder="30" /></div>
+                    </div>
+                </div>
+                <div class="aa-card-foot">
+                    <span id="downloadManagementStatus" class="aa-helper"></span>
+                    <button type="submit" class="btn btn-primary btn-sm gap-2">
+                        <span>Save Download Management Settings</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div id="settingsPanel-indexers" class="settings-panel">
+        <div class="aa-phead">
+            <div class="aa-pl">
+                <div>
+                    <h3>Indexers</h3>
+                    <p class="aa-pdesc">Connect multiple torznab sources and set the order they are queried.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="collapse collapse-arrow aa-card" id="aggregatorConnectionsPanel">
+            <input type="checkbox" id="aggregatorConnectionsToggle" />
+            <div class="collapse-title text-sm font-semibold flex items-center gap-2">
+                Aggregator Connections
+                <span class="text-xs font-normal text-base-content/50 ml-1">Prowlarr &amp; NZBHydra2</span>
+            </div>
+            <div class="collapse-content space-y-4">
+                <p class="aa-hint -mt-1">Configure the base URL and API key for each aggregator. These credentials are used by the Sync feature to import indexers.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                    <div class="aa-card" style="margin:0;">
+                        <div class="aa-card-head">
+                            <div class="aa-ttl"><b>Prowlarr</b></div>
+                            <span id="prowlarrConnectionStatus" class="badge badge-ghost badge-sm hidden"></span>
+                        </div>
+                        <div class="aa-card-body" style="padding:13px 15px;">
+                            <div class="aa-field" style="margin-bottom:11px;">
+                                <label class="aa-flabel" for="prowlarr_base_url">Base URL</label>
+                                <input id="prowlarr_base_url" type="text" pattern="https?://.*" title="Must start with http:// or https://" class="input input-bordered input-sm w-full" placeholder="http://192.168.1.10:9696" autocomplete="off" />
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="prowlarr_api_key">API Key</label>
+                                <input id="prowlarr_api_key" type="password" class="input input-bordered input-sm w-full" autocomplete="off" placeholder="Paste API key" />
+                            </div>
+                            <div class="flex items-center gap-2 pt-3">
+                                <button type="button" id="prowlarrTestButton" class="btn btn-outline btn-xs gap-1">
+                                    Test
+                                </button>
+                                <button type="button" id="prowlarrSaveButton" class="btn btn-primary btn-xs gap-1">
+                                    Save
+                                </button>
+                                <button type="button" id="prowlarrSyncButton" class="btn btn-outline btn-xs gap-1 ml-auto" title="Sync indexers from Prowlarr">
+                                    Sync
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="aa-card" style="margin:0;">
+                        <div class="aa-card-head">
+                            <div class="aa-ttl"><b>NZBHydra2</b></div>
+                            <span id="nzbhydra2ConnectionStatus" class="badge badge-ghost badge-sm hidden"></span>
+                        </div>
+                        <div class="aa-card-body" style="padding:13px 15px;">
+                            <div class="aa-field" style="margin-bottom:11px;">
+                                <label class="aa-flabel" for="nzbhydra2_base_url">Base URL</label>
+                                <input id="nzbhydra2_base_url" type="text" pattern="https?://.*" title="Must start with http:// or https://" class="input input-bordered input-sm w-full" placeholder="http://192.168.1.10:5076" autocomplete="off" />
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="nzbhydra2_api_key">API Key</label>
+                                <input id="nzbhydra2_api_key" type="password" class="input input-bordered input-sm w-full" autocomplete="off" placeholder="Paste API key" />
+                            </div>
+                            <div class="flex items-center gap-2 pt-3">
+                                <button type="button" id="nzbhydra2TestButton" class="btn btn-outline btn-xs gap-1">
+                                    Test
+                                </button>
+                                <button type="button" id="nzbhydra2SaveButton" class="btn btn-primary btn-xs gap-1">
+                                    Save
+                                </button>
+                                <button type="button" id="nzbhydra2SyncButton" class="btn btn-outline btn-xs gap-1 ml-auto" title="Sync indexers from NZBHydra2">
+                                    Sync
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="aa-split">
+            <aside>
+                <div class="aa-list-head">
+                    <span class="aa-lt">Configured Indexers</span>
+                    <div class="flex items-center gap-1">
+                        <button type="button" id="indexerSyncButton" class="btn btn-outline btn-xs gap-1" title="Sync indexers from a configured Prowlarr instance">
+                            <span>Sync</span>
+                        </button>
+                        <button type="button" id="indexerAddButton" class="btn btn-outline btn-xs">
+                            <span>Add</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="indexersList" class="aa-list">
+                    <div class="aa-list-empty">
+                        No indexers configured yet.
+                    </div>
+                </div>
+            </aside>
+            <form id="indexerForm" data-status-target="indexerStatus" novalidate>
+                <div id="indexerEmptyState" class="aa-list-empty" style="padding:28px;">
+                    Select or add an indexer to edit connection details.
+                </div>
+                <div id="indexerEditor" class="aa-card hidden" style="margin:0;">
+                    <input type="hidden" id="indexer_key" />
+                    <div class="aa-card-head">
+                        <div class="aa-ttl"><b id="indexerHeading">New Indexer</b><span id="indexerHelper" class="aa-sub">Provide the API endpoint and key from your indexer or aggregator.</span></div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="indexerRefreshButton" class="btn btn-outline btn-xs gap-2">
+                                <span>Reload</span>
+                            </button>
+                            <button type="button" id="indexerTestButton" class="btn btn-outline btn-xs gap-2">
+                                <span>Test</span>
+                            </button>
+                            <button type="button" id="indexerDeleteButton" class="btn btn-outline btn-xs btn-error gap-2 hidden">
+                                <span>Delete</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="aa-card-body">
+                        <div class="aa-grid">
+                            <div class="aa-field aa-c2">
+                                <label class="aa-flabel" for="indexer_name">Display Name</label>
+                                <input id="indexer_name" type="text" class="input input-bordered w-full" placeholder="Jackett - My Tracker" />
+                            </div>
+                            <div class="aa-field aa-c2">
+                                <label class="aa-flabel" for="indexer_custom_key">Indexer Key</label>
+                                <input id="indexer_custom_key" type="text" class="input input-bordered w-full" placeholder="jackett_primary" />
+                                <span class="aa-hint">Used internally to identify this indexer. Letters, numbers, and underscores only.</span>
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="indexer_type">Type</label>
+                                <select id="indexer_type" class="select select-bordered w-full">
+                                    <option value="jackett">Jackett</option>
+                                    <option value="prowlarr">Prowlarr</option>
+                                    <option value="nzbhydra2">NZBHydra2</option>
+                                    <option value="direct">Direct</option>
+                                </select>
+                            </div>
+                            <div class="aa-field justify-center gap-2">
+                                <div class="aa-row aa-tog" style="padding:0;border:none;">
+                                    <div class="aa-rl"><label class="aa-lbl" for="indexer_enabled">Enabled</label></div>
+                                    <div class="aa-rc"><input id="indexer_enabled" type="checkbox" class="toggle toggle-success" /></div>
+                                </div>
+                                <div class="aa-row aa-tog" style="padding:0;border:none;">
+                                    <div class="aa-rl"><label class="aa-lbl" for="indexer_private">Private Indexer</label><div class="aa-hint">Show freeleech/VIP status on search results.</div></div>
+                                    <div class="aa-rc"><input id="indexer_private" type="checkbox" class="toggle toggle-success" /></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="aa-grid" style="padding-top:0;">
+                            <div class="aa-field aa-c2" data-indexer-field="standard">
+                                <label class="aa-flabel" for="indexer_feed_url">Feed URL</label>
+                                <input id="indexer_feed_url" type="text" pattern="https?://.*" title="Must start with http:// or https://" class="input input-bordered w-full" placeholder="http://127.0.0.1:9117/api/v2.0/indexers/all/results/torznab" />
+                            </div>
+                            <div class="aa-field aa-c2" data-indexer-field="api-key">
+                                <label class="aa-flabel" for="indexer_api_key">API Key</label>
+                                <input id="indexer_api_key" type="text" class="input input-bordered w-full" autocomplete="off" />
+                            </div>
+                            <div class="aa-field aa-c2 hidden" data-indexer-field="base-url">
+                                <label class="aa-flabel" for="indexer_base_url">Base URL</label>
+                                <input id="indexer_base_url" type="text" pattern="https?://.*" title="Must start with http:// or https://" class="input input-bordered w-full" placeholder="http://127.0.0.1:5076" />
+                                <span class="aa-hint">Root endpoint, no trailing slash.</span>
+                            </div>
+                            <div class="aa-field aa-c2 hidden" data-indexer-field="direct">
+                                <label class="aa-flabel" for="indexer_session_id">Session ID</label>
+                                <textarea id="indexer_session_id" class="textarea textarea-bordered w-full font-mono break-all" rows="3" autocomplete="off" placeholder="Paste active session token" spellcheck="false"></textarea>
+                                <span class="aa-hint">Used as the authentication token when calling the direct provider API.</span>
+                            </div>
+                            <div class="aa-field hidden" data-indexer-field="mam">
+                                <label class="aa-flabel" for="indexer_search_type">Search scope</label>
+                                <select id="indexer_search_type" class="select select-bordered w-full">
+                                    <option value="all">Everything</option>
+                                    <option value="fl">Freeleech only</option>
+                                    <option value="fl-vip">Freeleech or VIP</option>
+                                    <option value="vip">VIP only</option>
+                                    <option value="nvip">Non-VIP only</option>
+                                    <option value="active">Active (seeded)</option>
+                                    <option value="inactive">Inactive (0 seeders)</option>
+                                </select>
+                                <span class="aa-hint">MyAnonamouse supports filtering by VIP/freeleech/active status.</span>
+                            </div>
+                            <div class="aa-field hidden" data-indexer-field="mam">
+                                <label class="aa-flabel" for="indexer_min_seeders">Minimum Seeders</label>
+                                <input id="indexer_min_seeders" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="0" />
+                                <span class="aa-hint">Results below this seeder count are dropped. 0 = no floor.</span>
+                            </div>
+                            <div class="aa-field hidden" data-indexer-field="mam">
+                                <label class="aa-flabel" for="indexer_preferred_formats">Preferred Formats</label>
+                                <input id="indexer_preferred_formats" type="text" class="input input-bordered w-full" placeholder="m4b, mp3" />
+                                <span class="aa-hint">Comma separated. Matching results are ranked first; seeders desc otherwise.</span>
+                            </div>
+                            <div class="aa-field hidden" data-indexer-field="mam">
+                                <label class="aa-flabel" for="indexer_languages">Language Filter</label>
+                                <input id="indexer_languages" type="text" class="input input-bordered w-full" placeholder="eng, spa" />
+                                <span class="aa-hint">Comma separated ISO 639-2 codes. Leave blank for no language filter.</span>
+                            </div>
+                        </div>
+                        <div id="mamAccountWidget" class="hidden" data-indexer-field="mam">
+                            <div class="aa-eyebrow" style="margin:6px 2px 10px;">
+                                MAM Account <span class="aa-ln"></span>
+                                <button type="button" id="mamBuyWedgeButton" class="btn btn-outline btn-xs gap-1">
+                                    <span>Buy Wedge</span>
+                                </button>
+                            </div>
+                            <div class="aa-strip">
+                                <div class="aa-st">
+                                    <div class="aa-k">Ratio</div>
+                                    <div class="aa-v" id="mamAccountRatio">—</div>
+                                </div>
+                                <div class="aa-st">
+                                    <div class="aa-k">Class</div>
+                                    <div class="aa-v" id="mamAccountClass">—</div>
+                                </div>
+                                <div class="aa-st">
+                                    <div class="aa-k">Bonus</div>
+                                    <div class="aa-v" id="mamAccountBonus">—</div>
+                                </div>
+                                <div class="aa-st">
+                                    <div class="aa-k">FL Wedges</div>
+                                    <div class="aa-v aa-accent" id="mamAccountWedges">—</div>
+                                </div>
+                            </div>
+                            <p id="mamAccountStatus" class="aa-hint mt-1"></p>
+                        </div>
+                        <div class="aa-grid">
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="indexer_priority">Priority</label>
+                                <input id="indexer_priority" type="number" min="0" max="999" step="1" class="input input-bordered w-full" placeholder="100" />
+                                <span class="aa-hint">Lower numbers run first during searches.</span>
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="indexer_categories">Categories</label>
+                                <input id="indexer_categories" type="text" class="input input-bordered w-full" placeholder="3030, 3031" />
+                                <span class="aa-hint">Comma separated torznab category IDs.</span>
+                            </div>
+                        </div>
+                        <div class="aa-grid">
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="indexer_max_grabs_per_hour">Max grabs per hour</label>
+                                <input id="indexer_max_grabs_per_hour" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="0" />
+                                <span class="aa-hint">0 = unlimited. Some private trackers flag bursty automated activity.</span>
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="indexer_max_grabs_per_day">Max grabs per day</label>
+                                <input id="indexer_max_grabs_per_day" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="0" />
+                                <span class="aa-hint">0 = unlimited.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="aa-card-foot">
+                        <span id="indexerStatus" class="aa-helper"></span>
+                        <button type="submit" class="btn btn-primary btn-sm gap-2">
+                            <span>Save Indexer</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+    </div>
+
+    <div id="settingsPanel-match" class="settings-panel">
+        <form id="searchMatchForm" data-status-target="searchMatchStatus" novalidate>
+            <div class="aa-card">
+                <div class="aa-card-head"><div class="aa-ttl"><b>Match</b><span class="aa-sub">How sure AuralArchive must be that a result is the right book and edition</span></div></div>
+                <div class="aa-card-body">
+                    <div class="aa-grid">
+                        <div class="aa-field">
+                            <label class="aa-flabel" for="min_match_score">Minimum match confidence to auto-download</label>
+                            <input id="min_match_score" type="number" min="0" max="100" step="1" class="input input-bordered w-full" placeholder="80" />
+                            <span class="aa-hint">0-100. Below this, an automatic search is rejected as "not confident it's the right book."</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="aa-card-foot">
+                    <span id="searchMatchStatus" class="aa-helper"></span>
+                    <button type="submit" class="btn btn-primary btn-sm gap-2">
+                        <span>Save Match Settings</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <form id="searchQualityForm" data-status-target="searchQualityStatus" novalidate>
+            <div class="aa-card">
+                <div class="aa-card-head"><div class="aa-ttl"><b>Quality</b><span class="aa-sub">Preferred formats and bitrates, and the lowest release quality to download</span></div></div>
+                <div class="aa-card-body">
+                    <div class="aa-grid">
+                        <div class="aa-field">
+                            <label class="aa-flabel" for="preferred_format">Preferred format</label>
+                            <select id="preferred_format" class="select select-bordered w-full">
+                                <option value="M4B">M4B</option>
+                                <option value="M4A">M4A</option>
+                                <option value="MP3">MP3</option>
+                                <option value="FLAC">FLAC</option>
+                            </select>
+                        </div>
+                        <div class="aa-field">
+                            <label class="aa-flabel" for="format_priority">Format priority</label>
+                            <input id="format_priority" type="text" class="input input-bordered w-full" placeholder="M4B,M4A,MP3,FLAC" />
+                            <span class="aa-hint">Comma-separated, best first.</span>
+                        </div>
+                        <div class="aa-field">
+                            <label class="aa-flabel" for="min_bitrate">Minimum bitrate (kbps)</label>
+                            <input id="min_bitrate" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="64" />
+                        </div>
+                        <div class="aa-field">
+                            <label class="aa-flabel" for="preferred_bitrate">Preferred bitrate (kbps)</label>
+                            <input id="preferred_bitrate" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="128" />
+                        </div>
+                        <div class="aa-field">
+                            <label class="aa-flabel" for="min_quality_score">Minimum release quality to auto-download</label>
+                            <input id="min_quality_score" type="number" min="0" max="100" step="1" class="input input-bordered w-full" placeholder="70" />
+                            <span class="aa-hint">0-100. Below this, a confirmed match is still rejected for poor file quality.</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="aa-card-foot">
+                    <span id="searchQualityStatus" class="aa-helper"></span>
+                    <button type="submit" class="btn btn-primary btn-sm gap-2">
+                        <span>Save Quality Settings</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div id="settingsPanel-media" class="settings-panel">
+        <div class="aa-phead">
+            <div class="aa-pl">
+                <div>
+                    <h3>Media Management</h3>
+                    <p class="aa-pdesc">Coordinate naming templates, staging paths, and download processing rules.</p>
+                </div>
+            </div>
+        </div>
+        <form id="mediaManagementForm" data-status-target="mediaStatus" novalidate>
+            <div class="aa-card">
+                <div class="aa-card-head"><div class="aa-ttl"><b>Naming Template</b><span class="aa-sub">How organized files are structured when moved into the library</span></div></div>
+                <div class="aa-card-body" style="padding:16px 18px;">
+                    <div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
+                        <div class="aa-field">
+                            <label class="aa-flabel" for="mm_naming_template">Template</label>
+                            <select id="mm_naming_template" class="select select-bordered w-full"></select>
+                        </div>
+                        <div class="aa-preview">
+                            <p class="aa-pk">Preview</p>
+                            <ul id="mmNamingPreviewList" class="space-y-1 text-sm text-base-content/80">
+                                <li class="italic text-base-content/50">Select a template to preview organized filenames.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p class="aa-hint" style="padding-top:12px;">Library, downloads and import folder locations are set in <a href="#storage" class="link link-primary" data-settings-jump="storage">Settings &rsaquo; Storage</a>.</p>
+                </div>
+            </div>
+
+            <div class="aa-card" id="conversionQualitySection">
+                <div class="aa-card-head"><div class="aa-ttl"><b>Conversion Quality</b><span class="aa-sub">Audio encoding when merging MP3 downloads into a single M4B</span></div></div>
+                <div class="aa-card-body" style="padding:6px 18px 16px;">
+                    <div class="aa-row aa-tog">
+                        <div class="aa-rl"><label class="aa-lbl" for="conversion_convert_mp3">Convert MP3 downloads to M4B</label><div class="aa-hint">Merges multi-file MP3 downloads into a single chaptered M4B before import. Chapters are pulled from Audible when available, otherwise from local files.</div></div>
+                        <div class="aa-rc"><input id="conversion_convert_mp3" type="checkbox" class="toggle toggle-success" /></div>
+                    </div>
+
+                    <div role="tablist" class="join mt-4">
+                        <button type="button" role="tab" class="btn btn-sm join-item btn-primary conv-tab" data-conv-panel="presets">Presets</button>
+                        <button type="button" role="tab" class="btn btn-sm join-item btn-ghost conv-tab" data-conv-panel="advanced">Advanced</button>
+                    </div>
+
+                    <div id="convPresetPanel" class="rounded-box border border-base-content/10 bg-base-200/40 p-4 space-y-4 mt-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="space-y-1.5">
+                                <span class="block text-xs uppercase tracking-wide text-base-content/60">Codec</span>
+                                <div class="join w-full conv-preset-group" data-target="conv_codec">
+                                    <button type="button" class="btn btn-sm join-item flex-1 conv-preset" data-value="copy">Copy</button>
+                                    <button type="button" class="btn btn-sm join-item flex-1 conv-preset" data-value="aac">AAC</button>
+                                    <button type="button" class="btn btn-sm join-item flex-1 conv-preset" data-value="libopus">OPUS</button>
+                                </div>
+                            </div>
+                            <div class="space-y-1.5">
+                                <span class="block text-xs uppercase tracking-wide text-base-content/60">Bitrate</span>
+                                <div class="join w-full conv-preset-group" data-target="conv_bitrate">
+                                    <button type="button" class="btn btn-sm join-item flex-1 conv-preset" data-value="32k">32k</button>
+                                    <button type="button" class="btn btn-sm join-item flex-1 conv-preset" data-value="64k">64k</button>
+                                    <button type="button" class="btn btn-sm join-item flex-1 conv-preset" data-value="128k">128k</button>
+                                    <button type="button" class="btn btn-sm join-item flex-1 conv-preset" data-value="192k">192k</button>
+                                </div>
+                            </div>
+                            <div class="space-y-1.5">
+                                <span class="block text-xs uppercase tracking-wide text-base-content/60">Channels</span>
+                                <div class="join w-full conv-preset-group" data-target="conv_channels">
+                                    <button type="button" class="btn btn-sm join-item flex-1 conv-preset" data-value="1">1 (mono)</button>
+                                    <button type="button" class="btn btn-sm join-item flex-1 conv-preset" data-value="2">2 (stereo)</button>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-xs text-base-content/50">Currently: <span id="convSummary" class="font-medium text-base-content/70">—</span></p>
+                    </div>
+
+                    <div id="convAdvancedPanel" class="rounded-box border border-base-content/10 bg-base-200/40 p-4 space-y-4 hidden mt-4">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <fieldset class="fieldset gap-1">
+                                <legend class="fieldset-legend text-xs uppercase tracking-wide text-base-content/60">Audio codec</legend>
+                                <input id="conv_codec" type="text" class="input input-bordered w-full" placeholder="aac" />
+                            </fieldset>
+                            <fieldset class="fieldset gap-1">
+                                <legend class="fieldset-legend text-xs uppercase tracking-wide text-base-content/60">Audio bitrate</legend>
+                                <input id="conv_bitrate" type="text" class="input input-bordered w-full" placeholder="64k" />
+                            </fieldset>
+                            <fieldset class="fieldset gap-1">
+                                <legend class="fieldset-legend text-xs uppercase tracking-wide text-base-content/60">Channels (1 or 2)</legend>
+                                <input id="conv_channels" type="text" class="input input-bordered w-full" placeholder="1" />
+                            </fieldset>
+                            <fieldset class="fieldset gap-1">
+                                <legend class="fieldset-legend text-xs uppercase tracking-wide text-base-content/60">Sample rate (Hz)</legend>
+                                <input id="conv_sample_rate" type="text" class="input input-bordered w-full" placeholder="22050" />
+                            </fieldset>
+                        </div>
+                        <p class="text-xs text-warning flex items-center gap-2">
+                            Do not change these unless you're familiar with FFmpeg encoding options. (Codec <span class="font-mono">copy</span> remuxes without re-encoding and ignores bitrate/channels.)
+                        </p>
+                    </div>
+                </div>
+                <div class="aa-card-foot">
+                    <span id="mediaStatus" class="aa-helper"></span>
+                    <button type="submit" class="btn btn-primary btn-sm gap-2">
+                        <span>Save Media Management Settings</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="aa-card" id="libraryRoutingCard">
+            <div class="aa-card-head"><div class="aa-ttl"><b>Library Routing</b><span class="aa-sub">Which library a new book is imported into. Libraries are set up in Storage.</span></div></div>
+            <div class="aa-card-body">
+                <div id="routingSingle" class="aa-list-empty hidden">There's only one library, so every book goes there. Add another library in <a href="/settings#storage" data-settings-jump="storage" class="link">Storage</a> to route books.</div>
+                <div id="routingBody">
+                    <div class="aa-row">
+                        <div class="aa-rl"><label class="aa-lbl" for="routingKeepSeries">Keep series together</label><div class="aa-hint">A new book goes to the library that already holds most of its series, before any rule is checked.</div></div>
+                        <div class="aa-rc"><input type="checkbox" id="routingKeepSeries" class="toggle toggle-primary toggle-sm" checked></div>
+                    </div>
+                    <div class="aa-row" style="display:block;">
+                        <div class="aa-rl" style="margin-bottom:8px;"><span class="aa-lbl">Rules</span><div class="aa-hint">Checked from the top; the first match wins. Books that match no rule go to the default library. A library chosen when a book is added always wins.</div></div>
+                        <div id="routingRules" class="rt-rules"></div>
+                        <button type="button" id="routingAddRule" class="btn btn-outline btn-xs mt-2">Add rule</button>
+                    </div>
+                    <div class="aa-row" style="display:block;border:none;">
+                        <div class="aa-rl" style="margin-bottom:8px;"><span class="aa-lbl">Test</span><div class="aa-hint">Enter an ASIN from your library, or a title, author and language, to see where a book would go.</div></div>
+                        <div class="rt-test">
+                            <input type="text" id="routingTestAsin" class="input input-bordered input-sm" placeholder="ASIN">
+                            <span class="aa-hint">or</span>
+                            <input type="text" id="routingTestAuthor" class="input input-bordered input-sm" placeholder="Author">
+                            <input type="text" id="routingTestSeries" class="input input-bordered input-sm" placeholder="Series">
+                            <input type="text" id="routingTestLanguage" class="input input-bordered input-sm" placeholder="Language">
+                            <button type="button" id="routingTestButton" class="btn btn-outline btn-sm">Test</button>
+                        </div>
+                        <div id="routingTestResult" class="aa-helper mt-2" role="status"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="aa-card-foot">
+                <span id="routingStatus" class="aa-helper" role="status"></span>
+                <button type="button" id="routingSave" class="btn btn-primary btn-sm">Save Routing</button>
+            </div>
+        </div>
+    </div>
+
+
+    <dialog id="prowlarrSyncModal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box w-full max-w-lg space-y-4">
+            <h3 class="text-lg font-semibold">Sync Indexers from <span id="prowlarrSyncModalProvider">Prowlarr</span></h3>
+
+            <div id="prowlarrSyncLoading" class="flex flex-col items-center gap-3 py-6">
+                <span class="loading loading-spinner loading-md"></span>
+                <span class="text-sm text-base-content/60">Fetching indexers from <span id="prowlarrSyncLoadingProvider">Prowlarr</span>…</span>
+            </div>
+
+            <div id="prowlarrSyncError" class="hidden">
+                <div class="alert alert-error text-sm">
+                    <span id="prowlarrSyncErrorMsg"></span>
+                </div>
+            </div>
+
+            <div id="prowlarrSyncList" class="hidden space-y-2">
+                <div class="flex items-center justify-between pb-1 border-b border-base-300">
+                    <span class="text-xs text-base-content/60 uppercase tracking-wide">Select indexers to import</span>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="prowlarrSyncSelectAll" class="checkbox checkbox-xs" checked />
+                        <span class="text-xs">Select all</span>
+                    </label>
+                </div>
+                <div id="prowlarrSyncItems" class="max-h-72 overflow-y-auto space-y-1 pr-1"></div>
+            </div>
+
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost btn-sm" id="prowlarrSyncCancel">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm gap-2" id="prowlarrSyncConfirm" disabled>
+                    Import Selected
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button aria-label="Close"></button>
+        </form>
+    </dialog>
+
+    <dialog id="autoDownloadConfirmModal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box w-full max-w-lg space-y-4">
+            <h3 class="text-lg font-semibold text-warning">Enable automatic downloads?</h3>
+            <p class="text-sm text-base-content/80 leading-relaxed">
+                WARNING: This action will enable automatic download searches. The application does not decide downloads
+                based on ratios or upload/download limits. Therefore, private trackers should be monitored closely otherwise
+                ration/standings could be impacted. You use this feature at your own risk.
+            </p>
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" id="autoDownloadCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" id="autoDownloadConfirm">Enable</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button aria-label="Close"></button>
+        </form>
+    </dialog>
+
+    <div id="settingsPanel-discovery" class="settings-panel">
+        <div class="aa-phead">
+            <div class="aa-pl">
+                <div>
+                    <h3>Discovery</h3>
+                    <p class="aa-pdesc">Manage the cached Audible category/genre tree used by Discover &gt; Browse Genres.</p>
+                </div>
+            </div>
+            <div class="aa-pactions">
+                <button type="button" id="syncCategoriesBtn" class="btn btn-primary btn-sm gap-2">
+                    <span>Sync Now</span>
+                </button>
+            </div>
+        </div>
+
+        <form id="discoveryForm" data-status-target="discoveryStatus" novalidate>
+            <div class="aa-card">
+                <div class="aa-card-head"><div class="aa-ttl"><b>Category Sync</b></div></div>
+                <div class="aa-card-body">
+                    <div class="aa-row">
+                        <div class="aa-rl"><label class="aa-lbl" for="discovery_refresh_interval_days">Refresh interval (days)</label><div class="aa-hint">How often the category tree is automatically re-synced from Audible.</div></div>
+                        <div class="aa-rc">
+                            <input type="number" id="discovery_refresh_interval_days" class="input input-bordered w-full" min="1" max="365" value="30">
+                        </div>
+                    </div>
+                    <div class="aa-row" style="border:none;">
+                        <div class="aa-rl"><label class="aa-lbl">Last synced</label></div>
+                        <div class="aa-rc">
+                            <span id="discoveryLastSynced" class="aa-helper">Never synced</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="aa-card">
+                <div class="aa-card-head"><div class="aa-ttl"><b>Marketplace &amp; Language</b></div></div>
+                <div class="aa-card-body">
+                    <div class="aa-row">
+                        <div class="aa-rl"><label class="aa-lbl">Marketplace</label><div class="aa-hint">Set by your Audible sign-in (<a href="#" class="link" data-settings-jump="connected-services">Connected Services</a>).</div></div>
+                        <div class="aa-rc">
+                            <span id="discoveryMarketplace" class="aa-helper">Not signed in</span>
+                        </div>
+                    </div>
+                    <div class="aa-row" style="border:none;">
+                        <div class="aa-rl"><label class="aa-lbl" for="preferred_languages">Preferred languages</label><div class="aa-hint">Comma separated, for example "english, en". Used by Discover, author and series pages, and search.</div></div>
+                        <div class="aa-rc">
+                            <input type="text" id="preferred_languages" class="input input-bordered w-full" placeholder="english, en">
+                        </div>
+                    </div>
+                </div>
+                <div class="aa-card-foot">
+                    <span id="discoveryStatus" class="aa-helper"></span>
+                    <button type="submit" class="btn btn-primary btn-sm gap-2">
+                        <span>Save Discovery Settings</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="aa-card" id="releaseCalendarSettings">
+            <div class="aa-card-head"><div class="aa-ttl"><b>Release Calendar</b><span class="aa-sub">Upcoming and recent titles for the tags and keywords you watch, shown on the Release Calendar page and the dashboard</span></div></div>
+            <div class="aa-card-body">
+                <div class="aa-row">
+                    <div class="aa-rl"><span class="aa-lbl">Watches</span><div class="aa-hint">Your unreleased Wanted books are always on the calendar.</div></div>
+                    <div class="aa-rc">
+                        <div id="rcWatchList" class="rcs-list"><span class="aa-helper">Loading…</span></div>
+                    </div>
+                </div>
+                <div class="aa-row">
+                    <div class="aa-rl"><span class="aa-lbl">Add a watch</span><div class="aa-hint">A tag follows one Audible genre. A keyword searches titles and descriptions, optionally within a tag.</div></div>
+                    <div class="aa-rc">
+                        <div class="rcs-add">
+                            <select id="rcKind" class="select select-bordered select-sm" aria-label="Watch type">
+                                <option value="tag">Tag</option>
+                                <option value="keyword">Keyword</option>
+                            </select>
+                            <input id="rcQuery" type="text" class="input input-bordered input-sm hidden" placeholder="Keyword, e.g. LitRPG" aria-label="Keyword" />
+                            <div class="rcs-tag">
+                                <input id="rcTagSearch" type="text" class="input input-bordered input-sm w-full" placeholder="Search tags, e.g. Space Opera" autocomplete="off" aria-label="Tag" />
+                                <div id="rcTagResults" class="rcs-results hidden" role="listbox"></div>
+                            </div>
+                            <button type="button" id="rcAdd" class="btn btn-primary btn-sm">Add watch</button>
+                        </div>
+                        <span id="rcAddStatus" class="aa-hint" role="status"></span>
+                    </div>
+                </div>
+                <div class="aa-row">
+                    <div class="aa-rl"><label class="aa-lbl" for="rcLookahead">Look ahead (days)</label><div class="aa-hint">How far into the future to find releases.</div></div>
+                    <div class="aa-rc"><input type="number" id="rcLookahead" class="input input-bordered w-full" min="0" max="365" /></div>
+                </div>
+                <div class="aa-row" style="border:none;">
+                    <div class="aa-rl"><label class="aa-lbl" for="rcLookback">Look back (days)</label><div class="aa-hint">How long recently released titles stay on the calendar.</div></div>
+                    <div class="aa-rc"><input type="number" id="rcLookback" class="input input-bordered w-full" min="0" max="365" /></div>
+                </div>
+            </div>
+            <div class="aa-card-foot">
+                <span id="rcStatus" class="aa-helper"></span>
+                <button type="button" id="rcRefresh" class="btn btn-ghost btn-sm">Refresh now</button>
+                <button type="button" id="rcSave" class="btn btn-primary btn-sm">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsPanel-audiobookshelf" class="settings-panel">
+        <div class="aa-phead">
+            <div class="aa-pl">
+                <div>
+                    <h3>Audiobookshelf</h3>
+                </div>
+            </div>
+        </div>
+
+        <form id="absConnectionForm" class="aa-card" data-own-dirty novalidate>
+            <div class="aa-card-head"><div class="aa-ttl"><b>Connection</b><span class="aa-sub">Create an API key in Audiobookshelf under Settings › API Keys</span></div></div>
+            <div class="aa-card-body">
+                <div class="aa-grid">
+                    <div class="aa-field">
+                        <label class="aa-flabel" for="abs_url">Server address</label>
+                        <input id="abs_url" type="url" class="input input-bordered w-full" placeholder="http://192.168.1.10:13378" autocomplete="off">
+                    </div>
+                    <div class="aa-field">
+                        <label class="aa-flabel" for="abs_api_key">API key</label>
+                        <input id="abs_api_key" type="password" class="input input-bordered w-full" autocomplete="new-password" placeholder="Paste the key">
+                    </div>
+                    <label class="aa-check"><input id="abs_enabled" type="checkbox" class="toggle toggle-primary toggle-sm"> <span>Connection on</span></label>
+                    <label class="aa-check"><input id="abs_verify_tls" type="checkbox" class="checkbox checkbox-sm" checked> <span>Check the HTTPS certificate</span></label>
+                </div>
+                <div id="absTestResult" class="hidden" style="margin-top:6px;">
+                    <div id="absTestLine" class="aa-helper" style="margin-bottom:8px;"></div>
+                    <div id="absCaps" class="abs-caps"></div>
+                    <div id="absWarnings" class="aa-store-flags" style="margin-top:10px;"></div>
+                </div>
+            </div>
+            <div class="aa-card-foot">
+                <span id="absConnectionStatus" class="aa-helper" role="status"></span>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="absTest" class="btn btn-outline btn-sm">Test</button>
+                    <button type="submit" id="absSaveConnection" class="btn btn-primary btn-sm">Save</button>
+                </div>
+            </div>
+        </form>
+
+        <div class="aa-card" id="absMappingCard">
+            <div class="aa-card-head"><div class="aa-ttl"><b>Library Mapping</b><span class="aa-sub">Which Audiobookshelf library holds the same folder as each AuralArchive library</span></div></div>
+            <div class="aa-card-body">
+                <div id="absMapping" class="abs-map"><div class="aa-hint">Test the connection to load Audiobookshelf's libraries.</div></div>
+                <div id="absMappingFlags" class="aa-store-flags" style="margin-top:10px;"></div>
+            </div>
+            <div class="aa-card-foot">
+                <span id="absMappingStatus" class="aa-helper" role="status"></span>
+                <button type="button" id="absSaveMapping" class="btn btn-primary btn-sm" disabled>Save Mapping</button>
+            </div>
+        </div>
+
+        <form id="absFeaturesForm" class="aa-card" data-own-dirty novalidate>
+            <div class="aa-card-head"><div class="aa-ttl"><b>Features</b></div></div>
+            <div class="aa-card-body">
+                <div class="aa-row">
+                    <div class="aa-rl"><label class="aa-lbl" for="abs_progress_users">Listening progress</label><div class="aa-hint">Whose progress shows on the Library page. Other users need an admin key.</div></div>
+                    <div class="aa-rc">
+                        <select id="abs_progress_users" class="select select-bordered select-sm w-full">
+                            <option value="me">The key's user</option>
+                            <option value="all">Everyone</option>
+                            <option value="custom">Chosen users…</option>
+                        </select>
+                        <input id="abs_progress_custom" type="text" class="input input-bordered input-sm w-full mt-2 hidden" placeholder="alex, sam">
+                    </div>
+                </div>
+                <div class="aa-row">
+                    <div class="aa-rl"><label class="aa-lbl" for="abs_next_in_series">Next in series</label><div class="aa-hint">When someone finishes a book, say whether the next one is in your library, downloading, out, or coming soon. Nothing is added automatically.</div></div>
+                    <div class="aa-rc"><input id="abs_next_in_series" type="checkbox" class="toggle toggle-primary toggle-sm"></div>
+                </div>
+                <div class="aa-row">
+                    <div class="aa-rl"><label class="aa-lbl" for="abs_notify_on_import">Tell Audiobookshelf about new books</label><div class="aa-hint">After an import, ask Audiobookshelf to scan the new folder (or the library, when its watcher is off). Needs an admin key.</div></div>
+                    <div class="aa-rc"><input id="abs_notify_on_import" type="checkbox" class="toggle toggle-primary toggle-sm"></div>
+                </div>
+                <div class="aa-row">
+                    <div class="aa-rl"><label class="aa-lbl" for="abs_hints">Match hints</label><div class="aa-hint">When a library folder can't be identified, try the ASIN Audiobookshelf has for it. It's still checked before anything is imported.</div></div>
+                    <div class="aa-rc"><input id="abs_hints" type="checkbox" class="toggle toggle-primary toggle-sm"></div>
+                </div>
+                <div class="aa-row">
+                    <div class="aa-rl"><label class="aa-lbl" for="abs_metadata_mode">Metadata</label><div class="aa-hint">Match each linked book in Audiobookshelf by its exact ASIN (<span id="absProvider">audible</span>), so it fills in details, cover, genres and tags.</div></div>
+                    <div class="aa-rc">
+                        <select id="abs_metadata_mode" class="select select-bordered select-sm w-full">
+                            <option value="off">Off</option>
+                            <option value="match_fill">Match and fill gaps (keeps edits made in Audiobookshelf)</option>
+                            <option value="match_replace">Match and replace</option>
+                        </select>
+                        <label class="aa-check mt-2"><input id="abs_metadata_aa_authority" type="checkbox" class="checkbox checkbox-sm"> <span>Also use AuralArchive's authors and series</span></label>
+                    </div>
+                </div>
+                <div class="aa-row" style="border:none;">
+                    <div class="aa-rl"><label class="aa-lbl" for="abs_sync_interval_hours">Sync every (hours)</label><div class="aa-hint">Links and progress. 0 turns automatic syncing off.</div></div>
+                    <div class="aa-rc"><input id="abs_sync_interval_hours" type="number" min="0" max="168" class="input input-bordered input-sm w-full"></div>
+                </div>
+                <div id="absBackfill" class="aa-row hidden" style="display:block;border-top:1px solid var(--aa-line);">
+                    <div class="aa-rl" style="margin-bottom:8px;"><span class="aa-lbl">Existing books</span><div class="aa-hint">Match every linked book now. Preview first to see what Audiobookshelf is missing.</div></div>
+                    <div id="absBackfillPreview" class="abs-gaps"></div>
+                    <div class="flex items-center gap-2 mt-2">
+                        <button type="button" id="absPreview" class="btn btn-outline btn-xs">Preview</button>
+                        <button type="button" id="absRunBackfill" class="btn btn-warning btn-xs hidden">Match all linked books</button>
+                        <span id="absBackfillState" class="aa-hint"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="aa-card-foot">
+                <span id="absFeaturesStatus" class="aa-helper" role="status"></span>
+                <button type="submit" class="btn btn-primary btn-sm">Save Features</button>
+            </div>
+        </form>
+
+        <div class="aa-card" id="absStatusCard">
+            <div class="aa-card-head">
+                <div class="aa-ttl"><b>Status</b><span id="absLastSync" class="aa-sub"></span></div>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="absRetryJobs" class="btn btn-ghost btn-xs hidden">Retry failed</button>
+                    <button type="button" id="absSyncNow" class="btn btn-outline btn-xs">Sync now</button>
+                </div>
+            </div>
+            <div class="aa-card-body">
+                <div id="absStats" class="abs-stats"></div>
+                <div id="absStatusFlags" class="aa-store-flags" style="margin-top:10px;"></div>
+                <details class="mt-3" id="absUnlinkedBox">
+                    <summary class="aa-lbl cursor-pointer">Books not found in Audiobookshelf (<span id="absUnlinkedCount">0</span>)</summary>
+                    <p class="aa-hint mt-1">Linked only by exact ASIN or folder. Pick the matching Audiobookshelf item to link one by hand.</p>
+                    <div id="absUnlinked" class="abs-list mt-2"></div>
+                </details>
+                <details class="mt-3">
+                    <summary class="aa-lbl cursor-pointer">In Audiobookshelf but not in AuralArchive (<span id="absOrphanCount">0</span>)</summary>
+                    <p class="aa-hint mt-1">Folders the library check hasn't imported yet, or books in folders outside your libraries.</p>
+                    <div id="absOrphans" class="abs-list mt-2"></div>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsPanel-connected-services" class="settings-panel">
+        <div class="aa-phead">
+            <div class="aa-pl">
+                <div>
+                    <h3>Connected Services</h3>
+                    <p class="aa-pdesc">Sign in to Audible, Hardcover and MyAnonamouse so AuralArchive can sync your library, reading status and tracker stats.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="aa-connected">
+
+            <div id="serviceTabs" role="tablist">
+              <button role="tab" class="service-tab tab-active" data-service="audible">
+                <span class="w-2 h-2 rounded-full shrink-0 bg-base-content/20" id="audibleDot"></span> Audible
+              </button>
+              <button role="tab" class="service-tab" data-service="hardcover">
+                <span class="w-2 h-2 rounded-full shrink-0 bg-base-content/20" id="hardcoverDot"></span> Hardcover
+              </button>
+              <button role="tab" class="service-tab" data-service="mam">
+                <span class="w-2 h-2 rounded-full shrink-0 bg-base-content/20" id="mamDot"></span> MyAnonamouse
+              </button>
+            </div>
+
+            <div class="service-pane" id="servicePane-audible">
+
+              <div class="palert hidden" id="audibleExpiredAlert">
+                <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                <span>Audible session expired or was revoked. Reconnect below.</span>
+              </div>
+
+              <div id="audibleConnectForm">
+                <div class="pcard pcard--narrow">
+                  <div class="pconnect-top">
+                    <div class="psvc-ico"><i class="fas fa-book-reader"></i></div>
+                    <div class="txt"><h3>Audible</h3><p>Connect your account to sync your owned library</p></div>
+                    <span class="badge badge-ghost badge-sm hidden" id="audibleStatusBadge"></span>
+                  </div>
+
+                  <div id="audibleLoginStep">
+                    <div class="pfield">
+                      <label class="plabel" for="audibleEmailInput">Email</label>
+                      <input type="email" class="pinput" id="audibleEmailInput" autocomplete="username" />
+                    </div>
+                    <div class="pfield">
+                      <label class="plabel" for="audiblePasswordInput">Password</label>
+                      <input type="password" class="pinput" id="audiblePasswordInput" autocomplete="current-password" />
+                    </div>
+                    <div class="pfield">
+                      <label class="plabel" for="audibleMarketplaceSelect">Marketplace</label>
+                      <select id="audibleMarketplaceSelect" class="pselect">
+                        <option value="us">United States (US)</option>
+                        <option value="ca">Canada (CA)</option>
+                        <option value="uk">United Kingdom (UK)</option>
+                        <option value="de">Germany (DE)</option>
+                        <option value="fr">France (FR)</option>
+                        <option value="it">Italy (IT)</option>
+                        <option value="es">Spain (ES)</option>
+                        <option value="au">Australia (AU)</option>
+                      </select>
+                    </div>
+                    <p class="phint">Your password is exchanged for a device token during sign-in and is never stored.</p>
+                    <div class="pcardfoot">
+                      <button class="pbtn pbtn-primary pbtn-sm" id="audibleConnectBtn">
+                        <span class="audibleConnectLabel">Connect Account</span>
+                        <i class="fas fa-spinner fa-spin hidden" id="audibleConnectSpinner"></i>
+                      </button>
+                      <span class="pstatus hidden" id="audibleConnectStatus"></span>
+                    </div>
+                  </div>
+
+                  <div class="hidden" id="audibleOtpStep">
+                    <p class="phint pmb12">Audible sent a one-time passcode to verify this device. Enter it below to finish connecting.</p>
+                    <div class="pfield">
+                      <label class="plabel" for="audibleOtpInput">One-Time Passcode</label>
+                      {# daisyUI otp: the spans must come before the input - the component
+                         sizes itself by counting its children, one span per digit. #}
+                      <label class="otp otp-primary" id="audibleOtpBox">
+                        <span></span><span></span><span></span><span></span><span></span><span></span>
+                        <input type="text" id="audibleOtpInput" maxlength="6" pattern="[0-9]{6}" inputmode="numeric"
+                               autocomplete="one-time-code" required aria-label="6-digit one-time passcode" />
+                      </label>
+                    </div>
+                    <div class="pcardfoot">
+                      <button class="pbtn pbtn-primary pbtn-sm" id="audibleOtpSubmitBtn">
+                        <span class="audibleOtpSubmitLabel">Verify</span>
+                        <i class="fas fa-spinner fa-spin hidden" id="audibleOtpSpinner"></i>
+                      </button>
+                      <button type="button" class="pbtn pbtn-ghost pbtn-sm" id="audibleOtpCancelBtn">Cancel</button>
+                      <span class="pstatus hidden" id="audibleOtpStatus"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="audibleStatsWidget" class="hidden">
+                <div class="pconnhead">
+                  <div class="who">
+                    <div class="psvc-ico"><i class="fas fa-book-reader"></i></div>
+                    <div>
+                      <div class="nm" id="audibleAccountName">—</div>
+                      <div class="sub"><span class="badge badge-success badge-sm">Connected</span> <span id="audibleMarketplace"></span></div>
+                    </div>
+                  </div>
+                  <div class="acts"><button class="pbtn pbtn-outline pbtn-sm" id="audibleRefreshBtn"><i class="fas fa-rotate"></i> Refresh</button></div>
+                </div>
+
+                <div class="pstats">
+                  <div class="s"><div class="k">Library Cache</div><div class="v" id="audibleCacheCount">—</div><div class="d" id="audibleCacheUpdated"></div></div>
+                </div>
+
+                <div class="pgrid2">
+                  <div class="pcard">
+                    <div class="pchead"><span class="t"><i class="fas fa-sync"></i> Library Sync</span></div>
+                    <div class="pgrid2 pgap8">
+                      <button class="pbtn pbtn-outline pbtn-sm" id="audibleSyncFullBtn"><i class="fas fa-sync"></i> Full Sync</button>
+                      <button class="pbtn pbtn-outline pbtn-sm" id="audibleSyncQuickBtn"><i class="fas fa-forward"></i> Quick Sync</button>
+                      <button class="pbtn pbtn-outline pbtn-sm" id="audibleRefreshCacheBtn"><i class="fas fa-redo"></i> Refresh Cache</button>
+                      <button class="pbtn pbtn-outline pbtn-sm" id="audibleValidateBtn"><i class="fas fa-shield-halved"></i> Validate</button>
+                    </div>
+                    <p class="phint pstatus-line" id="audibleSyncStatus"></p>
+                  </div>
+                  <div class="pcard">
+                    <div class="pchead"><span class="t"><i class="fas fa-toolbox"></i> Library Tools</span></div>
+                    <div class="pgrid2 pgap8">
+                      <button class="pbtn pbtn-outline pbtn-sm" id="audibleDownloadAllBtn"><i class="fas fa-cloud-arrow-down"></i> Download All</button>
+                      <button class="pbtn pbtn-outline pbtn-sm" id="audibleExportBtn"><i class="fas fa-file-export"></i> Export</button>
+                      <button class="pbtn pbtn-outline pbtn-sm" id="audibleStatsLoadBtn"><i class="fas fa-chart-pie"></i> Load Stats</button>
+                    </div>
+                    <p class="phint pstatus-line" id="audibleToolsStatus"></p>
+                  </div>
+                </div>
+
+                <div class="pcard pmt16">
+                  <div class="pchead"><span class="t"><i class="fas fa-chart-pie"></i> Library Statistics</span></div>
+                  <div class="pstats-note" id="audibleStatsContent">Statistics have not been loaded yet. Use <span class="hl">Load Stats</span> above.</div>
+                </div>
+
+                <div class="pcard pmt16">
+                  <div class="pchead"><span class="t"><i class="fas fa-cloud-arrow-down"></i> Direct Download Settings</span></div>
+                  <div class="pgrid2 pmb6">
+                    <div class="pfield pmb0">
+                      <label class="plabel" for="audibleFormatSelect">Preferred Format</label>
+                      <select id="audibleFormatSelect" class="pselect"><option value="aaxc">AAXC (Enhanced)</option><option value="aax">AAX (Legacy)</option></select>
+                    </div>
+                    <div class="pfield pmb0">
+                      <label class="plabel" for="audibleQualitySelect">Audio Quality</label>
+                      <select id="audibleQualitySelect" class="pselect"><option value="best">Best available</option><option value="high">High</option><option value="normal">Standard</option></select>
+                    </div>
+                  </div>
+                  <div class="pmt6">
+                    <label class="ptrow"><span class="lab">Fallback to AAX if AAXC fails</span><input type="checkbox" class="p-toggle" id="audibleAaxFallback" /></label>
+                    <label class="ptrow"><span class="lab">Save voucher files for AAXC downloads</span><input type="checkbox" class="p-toggle" id="audibleSaveVoucher" /></label>
+                    <label class="ptrow"><span class="lab">Download cover artwork</span><input type="checkbox" class="p-toggle" id="audibleIncludeCover" /></label>
+                    <label class="ptrow"><span class="lab">Download chapter metadata</span><input type="checkbox" class="p-toggle" id="audibleIncludeChapters" /></label>
+                    <label class="ptrow"><span class="lab">Download supplemental PDF (when available)</span><input type="checkbox" class="p-toggle" id="audibleIncludePdf" /></label>
+                    <div class="ptrow"><span class="lab">Concurrent Audible downloads</span><input type="number" min="1" max="5" step="1" class="pnumin" id="audibleConcurrentDownloads" /></div>
+                  </div>
+                  <div class="pcardfoot">
+                    <button class="pbtn pbtn-primary pbtn-sm" id="audibleSaveSettingsBtn">Save Settings</button>
+                    <span class="pstatus hidden" id="audibleSettingsStatus"></span>
+                  </div>
+                </div>
+
+                <div class="pdisc"><button class="pbtn pbtn-danger pbtn-sm" id="audibleDisconnectBtn"><i class="fas fa-unlink"></i> Revoke Authentication</button></div>
+              </div>
+            </div>
+
+            <div class="service-pane hidden" id="servicePane-hardcover">
+
+              <div class="palert hidden" id="hardcoverExpiredAlert">
+                <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                <span>Token expired or revoked. Reconnect below.</span>
+              </div>
+
+              <div id="hardcoverConnectForm">
+                <div class="pcard pcard--narrow">
+                  <div class="pconnect-top">
+                    <div class="psvc-ico"><i class="fas fa-book-open-reader"></i></div>
+                    <div class="txt"><h3>Hardcover</h3><p>Connect your account to sync shelves and browse trending titles</p></div>
+                    <span class="badge badge-ghost badge-sm hidden" id="hardcoverStatusBadge"></span>
+                  </div>
+                  <div class="peyebrow pmb10">How to connect</div>
+                  <div class="psteps">
+                    <div class="pstep"><span class="n">1</span><span class="tx">Go to <b>hardcover.app/account/api</b> while logged in.</span></div>
+                    <div class="pstep"><span class="n">2</span><span class="tx">Copy your API token and paste it below.</span></div>
+                  </div>
+                  <div class="pfield">
+                    <label class="plabel" for="hardcoverTokenInput">API Token</label>
+                    <input type="password" class="pinput mono" id="hardcoverTokenInput" placeholder="Paste your Hardcover API token…" autocomplete="off" />
+                  </div>
+                  <div class="pcardfoot">
+                    <button class="pbtn pbtn-primary pbtn-sm" id="hardcoverConnectBtn">
+                      <span class="hardcoverConnectLabel">Connect Account</span>
+                      <i class="fas fa-spinner fa-spin hidden" id="hardcoverConnectSpinner"></i>
+                    </button>
+                    <span class="pstatus hidden" id="hardcoverConnectStatus"></span>
+                  </div>
+                </div>
+              </div>
+
+              <div id="hardcoverStatsWidget" class="hidden">
+                <div class="pconnhead">
+                  <div class="who">
+                    <div class="psvc-ico"><i class="fas fa-book-open-reader"></i></div>
+                    <div>
+                      <div class="nm" id="hardcoverUsername">—</div>
+                      <div class="sub"><span class="badge badge-success badge-sm">Connected</span> Hardcover.app</div>
+                    </div>
+                  </div>
+                  <div class="acts"><button class="pbtn pbtn-outline pbtn-sm" id="hardcoverRefreshBtn"><i class="fas fa-rotate"></i> Refresh</button></div>
+                </div>
+
+                <div class="pstats">
+                  <div class="s"><div class="k">Want to Read</div><div class="v" id="hardcoverWant">—</div></div>
+                  <div class="s"><div class="k">Reading</div><div class="v" id="hardcoverReading">—</div></div>
+                  <div class="s"><div class="k">Read</div><div class="v" id="hardcoverRead">—</div></div>
+                  <div class="s"><div class="k">Owned</div><div class="v" id="hardcoverOwned">—</div></div>
+                  <div class="s"><div class="k">Avg Rating</div><div class="v p" id="hardcoverAvgRating">—</div></div>
+                </div>
+
+                <div class="pcard">
+                  <div class="pchead"><span class="t"><i class="fas fa-arrows-rotate"></i> Sync Behavior</span></div>
+                  <label class="ptrow"><span class="lab">Automatically push shelf status changes</span><input type="checkbox" class="p-toggle" id="hcAutoPushStatus" /></label>
+                  <label class="ptrow"><span class="lab">Automatically push “owned” flag</span><input type="checkbox" class="p-toggle" id="hcAutoPushOwned" /></label>
+                  <label class="ptrow"><span class="lab">Auto-create books on Hardcover that don't exist yet</span><input type="checkbox" class="p-toggle" id="hcAutoCreate" /></label>
+                  <div class="ptrow"><span class="lab">Discovery cache refresh interval (minutes)</span><input type="number" min="5" class="pnumin" id="hcCacheRefreshMinutes" /></div>
+                  <p class="phint pmt10">Conflict resolution: AuralArchive always wins - local status is authoritative.</p>
+                  <div class="pcardfoot">
+                    <button class="pbtn pbtn-primary pbtn-sm" id="hcSaveSettingsBtn">Save Settings</button>
+                    <span class="pstatus hidden" id="hcSettingsStatus"></span>
+                  </div>
+                </div>
+
+                <div class="pmt16">
+                  <div class="psechead"><i class="fas fa-list-check"></i> Sync Queue</div>
+                  <div class="ptbl-wrap">
+                    <table class="ptbl">
+                      <thead><tr><th>Book</th><th>Action</th><th>Status</th><th></th></tr></thead>
+                      <tbody id="hcSyncQueueBody">
+                        <tr id="hcSyncQueueEmpty"><td colspan="4" class="ptbl-empty">No pending or recent syncs</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div class="pdisc"><button class="pbtn pbtn-danger pbtn-sm" id="hardcoverDisconnectBtn"><i class="fas fa-unlink"></i> Disconnect Account</button></div>
+              </div>
+            </div>
+
+            <div class="service-pane hidden" id="servicePane-mam">
+
+              <div class="palert hidden" id="mamExpiredAlert">
+                <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                <span>Session expired. Re-enter your cookie below to reconnect.</span>
+              </div>
+
+              <div id="mamConnectForm">
+                <div class="pcard pcard--narrow">
+                  <div class="pconnect-top">
+                    <div class="psvc-ico"><i class="fas fa-users"></i></div>
+                    <div class="txt"><h3>MyAnonamouse</h3><p>Connect your account to enable searching and stats</p></div>
+                    <span class="badge badge-ghost badge-sm hidden" id="mamStatusBadge"></span>
+                  </div>
+                  <div class="peyebrow pmb10">How to connect</div>
+                  <div class="psteps">
+                    <div class="pstep"><span class="n">1</span><span class="tx">Log in to <b>myanonamouse.net</b> in your browser.</span></div>
+                    <div class="pstep"><span class="n">2</span><span class="tx">Open <b>DevTools</b> → <b>Application</b> → <b>Cookies</b>.</span></div>
+                    <div class="pstep"><span class="n">3</span><span class="tx">Copy the value of the <code>mam_id</code> cookie and paste it below.</span></div>
+                  </div>
+                  <div class="pfield">
+                    <label class="plabel" for="mamCookieInput">Session Cookie <span class="mono">(mam_id)</span></label>
+                    <input type="password" class="pinput mono" id="mamCookieInput" placeholder="Paste your mam_id value…" autocomplete="off" />
+                  </div>
+                  <div class="pcardfoot">
+                    <button class="pbtn pbtn-primary pbtn-sm" id="mamConnectBtn">
+                      <span class="mamConnectLabel">Connect Account</span>
+                      <i class="fas fa-spinner fa-spin hidden" id="mamConnectSpinner"></i>
+                    </button>
+                    <span class="pstatus hidden" id="mamConnectStatus"></span>
+                  </div>
+                </div>
+              </div>
+
+              <div id="mamStatsWidget" class="hidden">
+                <div class="pconnhead">
+                  <div class="who">
+                    <div class="psvc-ico"><i class="fas fa-users"></i></div>
+                    <div>
+                      <div class="nm" id="mamUsername">—</div>
+                      <div class="sub"><span class="badge badge-success badge-sm">Connected</span> <span id="mamClass"></span></div>
+                    </div>
+                  </div>
+                  <div class="acts"><button class="pbtn pbtn-outline pbtn-sm" id="mamRefreshBtn"><i class="fas fa-rotate"></i> Refresh</button></div>
+                </div>
+
+                <div class="pstats">
+                  <div class="s"><div class="k">Ratio</div><div class="v" id="mamRatio">—</div><div class="d" id="mamRatioLabel"></div></div>
+                  <div class="s"><div class="k">Bonus Points</div><div class="v" id="mamBonus">—</div></div>
+                  <div class="s"><div class="k">FL Wedges</div><div class="v p" id="mamWedges">—</div></div>
+                  <div class="s"><div class="k">Downloaded</div><div class="v pv-md" id="mamDownloaded">—</div></div>
+                  <div class="s"><div class="k">Uploaded</div><div class="v pv-md" id="mamUploaded">—</div></div>
+                </div>
+
+                <div class="pgrid2">
+                  <div class="pcard">
+                    <div class="pchead"><span class="t"><i class="fas fa-heart-pulse"></i> Account Health</span></div>
+                    <div class="pkv"><span class="k">Connected</span><span class="v ok">Active</span></div>
+                    <div class="pkv"><span class="k">Connectable</span><span class="v" id="mamConnectableStatus">—</span></div>
+                    <div class="pkv"><span class="k">Authentication</span><span class="v ok">Valid</span></div>
+                    <div class="pkv"><span class="k">Ratio Standing</span><span class="v" id="mamRatioStanding">—</span></div>
+                    <div class="pkv"><span class="k">HnR Violations</span><span class="v" id="mamHnrStatus">—</span></div>
+                  </div>
+                  <div class="pcard">
+                    <div class="pchead"><span class="t"><i class="fas fa-chart-line"></i> Activity Summary</span></div>
+                    <div class="pkv"><span class="k">Active Torrents</span><span class="v" id="mamActiveTotal">—</span></div>
+                    <div class="pkv"><span class="k">Seeding</span><span class="v ok" id="mamSeeding">—</span></div>
+                    <div class="pkv"><span class="k">Leeching</span><span class="v" id="mamLeeching">—</span></div>
+                    <div class="pkv"><span class="k">Unsatisfied</span><span class="v"><span id="mamUnsat">—</span> <span class="muted pkv-limit" id="mamUnsatLimit"></span></span></div>
+                    <div class="pkv"><span class="k">Total Snatched</span><span class="v" id="mamSnatches">—</span></div>
+                  </div>
+                </div>
+
+                <div class="hidden pmt16" id="mamActiveDownloadsSection">
+                  <div class="psechead"><i class="fas fa-download"></i> Active Downloads <span class="badge badge-sm" id="mamActiveCount">0</span></div>
+                  <div class="ptbl-wrap">
+                    <table class="ptbl">
+                      <thead><tr><th>Cover</th><th>Title</th><th>Status</th><th>Progress</th></tr></thead>
+                      <tbody id="mamActiveList"></tbody>
+                    </table>
+                  </div>
+                  <p class="phint phint--center" id="mamActiveEmpty">No active downloads from MyAnonamouse.</p>
+                </div>
+
+                <div class="pdisc"><button class="pbtn pbtn-danger pbtn-sm" id="mamDisconnectBtn"><i class="fas fa-unlink"></i> Disconnect Account</button></div>
+              </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="settingsPanel-maintenance" class="settings-panel">
+        <div class="aa-phead">
+            <div class="aa-pl">
+                <div>
+                    <h3>Maintenance</h3>
+                    <p class="aa-pdesc">Application logs, database tools, and image cache management.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="aa-maint-tools">
+            <div class="aa-mini">
+                <p class="aa-mt">Optimize Database</p>
+                <p class="aa-md">Run VACUUM and ANALYZE to reclaim space and improve query performance.</p>
+                <button type="button" id="btnOptimizeDb" class="btn btn-sm btn-outline" style="align-self:flex-start;">
+                    Optimize Database
+                </button>
+            </div>
+            <div class="aa-mini">
+                <p class="aa-mt">Repair Database</p>
+                <p class="aa-md">Attempt to fix integrity errors and rebuild corrupted indexes.</p>
+                <button type="button" id="btnRepairDb" class="btn btn-sm btn-outline btn-warning" style="align-self:flex-start;">
+                    Repair Database
+                </button>
+            </div>
+            <div class="aa-mini">
+                <p class="aa-mt">Clear Image Cache</p>
+                <p class="aa-md">Delete all locally cached cover images. They will be re-fetched on next use.</p>
+                <button type="button" id="btnClearImageCache" class="btn btn-sm btn-outline btn-error" style="align-self:flex-start;">
+                    Clear Image Cache
+                </button>
+            </div>
+            <div class="aa-mini">
+                <p class="aa-mt">Hidden Titles</p>
+                <p class="aa-md">Review and unhide titles you've unmonitored from Series and Author pages.</p>
+                <a href="/settings/hidden-titles" class="btn btn-sm btn-outline" style="align-self:flex-start;">
+                    View Hidden Titles
+                </a>
+            </div>
+        </div>
+
+        <div class="aa-maint-loglevel">
+            <div class="aa-maint-loglevel-label">
+                <div>
+                    <label class="aa-lbl" for="app_log_level">Log level</label>
+                    <span class="aa-hint">Controls how verbose the application logs are. Applies instantly.</span>
+                </div>
+            </div>
+            <div class="aa-maint-loglevel-control">
+                <span id="logLevelStatus" class="aa-maint-loglevel-status"></span>
+                <select id="app_log_level" class="select select-bordered select-sm">
+                    <option value="DEBUG">Debug</option>
+                    <option value="INFO">Info</option>
+                    <option value="WARNING">Warning</option>
+                    <option value="ERROR">Error</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="aa-logwin" style="margin-top:16px;">
+            <div class="aa-logwin-head">
+                <div class="aa-logwin-titlewrap">
+                    <div class="aa-logwin-dots"><span></span><span></span><span></span></div>
+                    <span class="aa-logwin-name">Application Logs</span>
+                </div>
+                <div class="aa-logwin-controls">
+                    <span id="logLiveIndicator" class="flex items-center gap-1.5 text-xs">
+                        <span class="status status-success status-xs animate-pulse"></span>
+                        <span id="logStatusLabel">Live</span>
+                    </span>
+                    <button type="button" id="logClearButton" class="btn btn-ghost btn-xs gap-1.5">
+                        Clear
+                    </button>
+                    <a href="/settings/api/logs/download" class="btn btn-ghost btn-xs gap-1.5">
+                        Download
+                    </a>
+                    <button type="button" id="logPauseButton" class="btn btn-ghost btn-xs gap-1.5">
+                        <span id="logPauseLabel">Pause</span>
+                    </button>
+                </div>
+            </div>
+            <div class="aa-logwin-body" id="logWindow">
+                <pre data-placeholder><code>Connecting to log stream…</code></pre>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Settings Panel Navigation (Sonarr-style sidebar sub-links)
+(function() {
+    const subnav = document.getElementById('settingsSubnav');
+    if (!subnav) return;
+
+    const links = subnav.querySelectorAll('.settings-sub-link');
+    const titleEl = document.getElementById('settingsSectionTitle');
+
+    function activate(section) {
+        const target = document.getElementById('settingsPanel-' + section);
+        if (!target) return false;
+        document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+        target.classList.add('active');
+        links.forEach(l => l.classList.remove('active'));
+        const activeLink = subnav.querySelector('[data-settings-section="' + section + '"]');
+        if (activeLink) {
+            activeLink.classList.add('active');
+            if (titleEl) titleEl.textContent = activeLink.querySelector('span').textContent;
+        }
+        sessionStorage.setItem('settingsActiveSection', section);
+        return true;
+    }
+
+    // A #section in the URL (e.g. /settings#storage from the storage banner)
+    // wins over the last section restored from sessionStorage.
+    const fromHash = window.location.hash.replace('#', '');
+    if (!(fromHash && activate(fromHash))) {
+        const saved = sessionStorage.getItem('settingsActiveSection');
+        if (saved) activate(saved);
+    }
+
+    document.querySelectorAll('[data-settings-jump]').forEach(el => {
+        el.addEventListener('click', function(e) {
+            e.preventDefault();
+            activate(this.getAttribute('data-settings-jump'));
+        });
+    });
+
+    links.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const section = this.getAttribute('data-settings-section');
+
+            // Switch panels
+            document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+            const panel = document.getElementById('settingsPanel-' + section);
+            if (panel) panel.classList.add('active');
+
+            // Switch active link
+            links.forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+
+            // Update toolbar title
+            if (titleEl) titleEl.textContent = this.querySelector('span').textContent;
+
+            // Persist selection
+            sessionStorage.setItem('settingsActiveSection', section);
+        });
+    });
+})();
+</script>
+<script src="{{ url_for('static', filename='js/settings.js') }}?v=15"></script>
+<script src="{{ url_for('static', filename='js/storage.js') }}?v=5"></script>
+<script src="{{ url_for('static', filename='js/libraries.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/audiobookshelf-settings.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/connected-services.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/metadata_refresh.js') }}?v=8"></script>
+<script src="{{ url_for('static', filename='js/background-tasks.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/release-calendar-settings.js') }}?v=2"></script>
+<script>
+// System panel actions
+(function () {
+    'use strict';
+
+    async function runAction(url, confirmTitle, confirmMsg, confirmLabel, btnEl) {
+        const ok = await AA.showConfirmDialog(confirmTitle, confirmMsg, confirmLabel);
+        if (!ok) return;
+        btnEl.disabled = true;
+        try {
+            const { ok: success, data } = await AA.apiFetch(url, { method: 'POST' });
+            if (success) {
+                showNotification(data?.message || 'Done.', 'success');
+            } else {
+                showNotification(data?.error || 'Action failed.', 'error');
+            }
+        } catch (_) {
+            showNotification('Request failed.', 'error');
+        } finally {
+            btnEl.disabled = false;
+        }
+    }
+
+    document.getElementById('btnOptimizeDb')?.addEventListener('click', function () {
+        runAction(
+            '/settings/database/optimize',
+            'Optimize Database',
+            'This will run VACUUM and ANALYZE on the database. The app may be briefly slower during this operation.',
+            'Optimize',
+            this
+        );
+    });
+
+    document.getElementById('btnRepairDb')?.addEventListener('click', function () {
+        runAction(
+            '/settings/database/repair',
+            'Repair Database',
+            'This will attempt to fix integrity errors. It is safe to run but may take a moment on large databases.',
+            'Repair',
+            this
+        );
+    });
+
+    document.getElementById('btnClearImageCache')?.addEventListener('click', function () {
+        runAction(
+            '/settings/image-cache/clear',
+            'Clear Image Cache',
+            'All cached cover images will be deleted. They will be re-fetched automatically on next use.',
+            'Clear Cache',
+            this
+        );
+    });
+})();
+</script>
+{% endblock %}

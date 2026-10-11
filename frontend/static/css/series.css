@@ -1,0 +1,62 @@
+
+:root{
+  --aa-line: color-mix(in oklch, var(--bc) 12%, transparent);
+  --aa-line-soft: color-mix(in oklch, var(--bc) 7%, transparent);
+  --aa-muted: color-mix(in oklch, var(--bc) 56%, transparent);
+  --aa-muted2: color-mix(in oklch, var(--bc) 38%, transparent);
+}
+
+body.series-canvas{background-color:var(--color-base-300) !important;}
+
+.series-page{max-width:1760px;margin-inline:auto;width:100%;}
+
+.series-toolbar{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;background:var(--b1);border:1px solid var(--aa-line);border-radius:.25rem;padding:14px 16px;margin-bottom:16px;}
+.series-toolbar .s-field{display:flex;flex-direction:column;gap:5px;}
+.series-toolbar .s-field.grow{flex:1;min-width:240px;}
+.series-toolbar .s-label{font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--aa-muted2);}
+.series-toolbar .input,.series-toolbar .select{background-color:var(--b3) !important;border:1px solid var(--aa-line) !important;color:var(--bc);box-shadow:none !important;}
+.series-toolbar .input:focus,.series-toolbar .select:focus{border-color:var(--p) !important;box-shadow:0 0 0 2px color-mix(in oklch,var(--p) 28%,transparent) !important;outline:none !important;}
+.series-toolbar .view-seg{margin-left:auto;}
+
+#tableView{padding:0 !important;}
+#tableView .overflow-x-auto{border:1px solid var(--aa-line);border-radius:.25rem;overflow:hidden;background:var(--b1);}
+#tableView table.table{margin:0;font-size:13px;}
+#tableView table.table th{background:var(--b2);color:var(--aa-muted2);font-size:10px;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--aa-line);}
+#tableView table.table td{border-bottom:1px solid var(--aa-line-soft);}
+#tableView table.table tr:last-child td{border-bottom:none;}
+#tableView table.table tbody tr:hover{background:color-mix(in oklch,var(--bc) 5%,transparent);}
+
+#compactView{padding:0 !important;}
+#compactList{display:flex;flex-direction:column;gap:10px;}
+#compactList .card{background:var(--b1) !important;border:1px solid var(--aa-line);border-radius:.25rem;transition:.13s;}
+#compactList .card:hover{border-color:color-mix(in oklch,var(--bc) 24%,transparent);background:var(--b2) !important;}
+
+.sd-hero{display:flex;gap:24px;flex-wrap:wrap;background:var(--b1);border:1px solid var(--aa-line);border-radius:.25rem;padding:24px;margin-bottom:14px;}
+.sd-cover-wrap{flex:none;}
+.sd-cover-wrap img{width:180px;height:180px;border-radius:.25rem;object-fit:cover;border:1px solid var(--aa-line);box-shadow:0 14px 30px -18px rgba(0,0,0,.8);display:block;}
+.sd-id{flex:1;min-width:260px;display:flex;flex-direction:column;}
+.sd-crumb{font-size:11px;color:var(--aa-muted);margin-bottom:10px;}
+.sd-crumb a{color:var(--aa-muted);text-decoration:none;}
+.sd-crumb a:hover{color:var(--bc);}
+.sd-crumb .sep{margin:0 7px;opacity:.5;}
+#sdGenreTags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+#sdGenreTags:empty{display:none;}
+.sd-tag{font-size:10px;font-weight:600;padding:2px 9px;border-radius:99px;background:var(--b3);border:1px solid var(--aa-line);color:var(--aa-muted);}
+#sdTitle{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.1;margin:0 0 4px;color:var(--bc);}
+#sdAuthor{font-size:13px;color:var(--aa-muted);margin:0 0 14px;}
+#sdStats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.sd-acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;}
+.sd-summary{flex:none;width:330px;max-width:100%;border-left:1px solid var(--aa-line);padding-left:22px;}
+.sd-summary .s-h{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--aa-muted2);margin-bottom:8px;}
+#sdDescText{font-size:12.5px;line-height:1.6;color:color-mix(in oklch,var(--bc) 80%,transparent);white-space:pre-line;}
+@media(max-width:1100px){.sd-summary{width:100%;border-left:none;border-top:1px solid var(--aa-line);padding-left:0;padding-top:18px;margin-top:4px;}}
+
+.sd-progress{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--b1);border:1px solid var(--aa-line);border-radius:.25rem;padding:14px 20px;margin-bottom:18px;}
+.sd-progress .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--aa-muted2);}
+#sdProgressBar{width:240px;}
+
+#sdBookList{display:flex;flex-direction:column;gap:12px;max-width:none;}
+#sdBookList .card{background:var(--b1) !important;border:1px solid var(--aa-line) !important;border-radius:.25rem;}
+#sdBookList .card:hover{border-color:color-mix(in oklch,var(--bc) 20%,transparent) !important;}
+
+#sdContent{display:block;}

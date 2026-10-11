@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}Discover - AuralArchive{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/space-grotesk.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/discover.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/discovery-categories.css') }}?v=2">
+{% endblock %}
+
+{% block content %}
+<section class="discover-hero">
+    <div class="discover-hero__shell">
+        <div class="discover-hero__copy">
+            <div class="discover-hero__eyebrow"><i class="fas fa-wand-magic-sparkles"></i> Audible-powered picks</div>
+            <h1 class="discover-hero__title">Recommended For You</h1>
+            <p class="discover-hero__subtitle">A refreshed shelf of curated titles tailored to your listening habits.</p>
+        </div>
+        <div class="discover-hero__actions">
+            <div class="btn-group discover-toggle-group">
+                <button id="discover-view-grid" type="button" class="btn btn-sm btn-ghost view-toggle-btn is-active" aria-label="Grid view">
+                    <i class="fas fa-grip"></i>
+                    <span class="hidden sm:inline">Grid</span>
+                </button>
+                <button id="discover-view-list" type="button" class="btn btn-sm btn-ghost view-toggle-btn" aria-label="List view">
+                    <i class="fas fa-list"></i>
+                    <span class="hidden sm:inline">List</span>
+                </button>
+                <button id="discover-view-table" type="button" class="btn btn-sm btn-ghost view-toggle-btn" aria-label="Table view">
+                    <i class="fas fa-table"></i>
+                    <span class="hidden sm:inline">Table</span>
+                </button>
+            </div>
+            <div class="discover-hero__cta">
+                <button id="refreshRecommendationsBtn" class="btn btn-primary btn-sm">
+                    <i class="fas fa-rotate-right mr-2"></i>
+                    Refresh Picks
+                </button>
+                <span id="recommendationStatus" class="sr-only">{{ 'Ready' if recommendations_configured else 'Unavailable' }}</span>
+            </div>
+        </div>
+        <div class="discovery-tabs" role="tablist">
+            <button type="button" class="discovery-tab is-active" data-tab="recommended" role="tab" aria-selected="true">Recommended</button>
+            <button type="button" class="discovery-tab" data-tab="genres" role="tab" aria-selected="false">Browse Genres</button>
+            <button type="button" class="discovery-tab" data-tab="new-releases" role="tab" aria-selected="false">New Releases</button>
+            <button type="button" class="discovery-tab" data-tab="popular" role="tab" aria-selected="false">Popular Books</button>
+        </div>
+    </div>
+</section>
+
+<section class="discover-panel mx-auto px-6 pb-10">
+    <div class="discover-panel__shell">
+        <div id="discovery-tabpanel-recommended" class="discovery-tabpanel is-active">
+            {% if recommendations_configured %}
+            <div id="discover-results" class="search-results-container" aria-live="polite" data-view="grid"></div>
+            {% else %}
+            <div class="flex flex-col items-center justify-center text-center py-10 space-y-4">
+                <i class="fas fa-circle-info text-4xl text-base-content/40"></i>
+                <div class="space-y-2">
+                    <h3 class="text-lg font-semibold">Recommendations Not Configured</h3>
+                    <p class="text-base-content/70">Connect your Audible credentials and enable discovery harvesting under <a class="link link-primary" href="/settings#connected-services">Settings &gt; Connected Services</a> to get tailored picks.</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div id="discovery-tabpanel-genres" class="discovery-tabpanel hidden">
+            <div class="discovery-genres-layout">
+                <aside class="discovery-genres-tree">
+                    <div class="discovery-genre-search">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="discovery-genre-search" placeholder="Search genres...">
+                    </div>
+                    <div id="discovery-genre-tree" class="discovery-tree" aria-live="polite">
+                        <div class="discovery-tree-loading"><i class="fas fa-spinner fa-spin"></i> Loading categories...</div>
+                    </div>
+                </aside>
+                <div class="discovery-genres-books">
+                    <div class="discovery-books-toolbar">
+                        <h3 id="discovery-selected-genre-label">Select a genre to browse</h3>
+                        <select id="discovery-sort-select" class="select select-sm select-bordered">
+                            <option value="-ReleaseDate">Newest Releases</option>
+                            <option value="BestSellers">Popularity</option>
+                            <option value="AvgRating">Rating</option>
+                            <option value="Title">Title (A-Z)</option>
+                        </select>
+                    </div>
+                    <div id="discovery-genre-books" class="discovery-book-grid" data-view="grid" aria-live="polite"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="discovery-tabpanel-new-releases" class="discovery-tabpanel hidden">
+            <div id="discovery-new-releases-books" class="discovery-book-grid" data-view="grid" aria-live="polite"></div>
+        </div>
+
+        <div id="discovery-tabpanel-popular" class="discovery-tabpanel hidden">
+            <div id="discovery-popular-books" class="discovery-book-grid" data-view="grid" aria-live="polite"></div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script id="discover-config" type="application/json">
+    {{ {
+        'recommendationsConfigured': recommendations_configured,
+        'recommendationsEndpoint': url_for('discover.get_recommendations')
+    } | tojson }}
+</script>
+<script src="{{ url_for('static', filename='js/discover.js') }}"></script>
+<script src="{{ url_for('static', filename='js/discovery-categories.js') }}?v=4"></script>
+{% endblock %}

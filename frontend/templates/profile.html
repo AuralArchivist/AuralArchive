@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Profile · AuralArchive{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}?v=7">
+{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+
+  <div id="profileTab-general" class="profile-tab-panel">
+    <div class="pgrid2">
+
+      <div class="pcard">
+        <div class="pchead"><span class="t"><i class="fas fa-id-card"></i> Account Details</span></div>
+        <div class="pfield">
+          <label class="plabel" for="profileDisplayName">Display Name</label>
+          <input type="text" class="pinput" id="profileDisplayName" maxlength="64" placeholder="Your display name" />
+        </div>
+        <div class="pfield">
+          <label class="plabel">Username</label>
+          <input type="text" class="pinput" id="profileUsername" readonly disabled />
+        </div>
+        <div class="pcrow"><span class="k">Member Since</span><span class="v" id="profileCreatedAt">—</span></div>
+        <div class="pcardfoot">
+          <button class="pbtn pbtn-primary pbtn-sm" id="saveDisplayNameBtn">Save Changes</button>
+          <span class="pstatus hidden" id="displayNameStatus"></span>
+        </div>
+      </div>
+
+      <div class="pcard">
+        <div class="pchead"><span class="t"><i class="fas fa-lock"></i> Security</span></div>
+        <div class="pfield">
+          <label class="plabel" for="pwCurrent">Current Password</label>
+          <input type="password" class="pinput" id="pwCurrent" autocomplete="current-password" />
+        </div>
+        <div class="pfield">
+          <label class="plabel" for="pwNew">New Password</label>
+          <input type="password" class="pinput" id="pwNew" autocomplete="new-password" />
+        </div>
+        <div class="pfield">
+          <label class="plabel" for="pwConfirm">Confirm New Password</label>
+          <input type="password" class="pinput" id="pwConfirm" autocomplete="new-password" />
+        </div>
+        <div class="pcardfoot">
+          <button class="pbtn pbtn-primary pbtn-sm" id="changePasswordBtn">Change Password</button>
+          <span class="pstatus hidden" id="passwordStatus"></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/profile.js') }}?v=6"></script>
+{% endblock %}

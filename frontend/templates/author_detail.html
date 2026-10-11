@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+
+{% block title %}Author: {{ author_data.name if author_data else author_name }} - AuralArchive{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/authors.css') }}?v=6">
+{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="alert alert-error shadow-lg mb-6">
+    <i class="fas fa-exclamation-triangle"></i>
+    <span>{{ error }}</span>
+</div>
+{% else %}
+<div class="author-shell">
+
+    <div class="author-col-left">
+
+        <a href="/authors" class="btn btn-ghost btn-xs mb-4 -ml-1 text-base-content/60">
+            <i class="fas fa-arrow-left text-xs"></i> Back to Authors
+        </a>
+
+        <div class="author-photo">
+            {% if author_data.author_image %}
+            <img src="{{ author_data.author_image }}" alt="{{ author_data.name }}">
+            {% else %}
+            <i class="fas fa-user text-5xl text-base-content/20"></i>
+            {% endif %}
+        </div>
+
+        <h1 class="text-2xl font-bold leading-tight mb-1">{{ author_data.name }}</h1>
+        <p class="text-sm text-base-content/60 mb-4">{{ author_data.book_count }} books tracked</p>
+
+        <div class="flex flex-wrap gap-2 mb-5">
+            <button type="button" class="btn btn-sm btn-soft btn-success js-import-author" data-author="{{ author_data.name }}">
+                <i class="fas fa-cloud-download-alt"></i> Import Catalog
+            </button>
+            {% if author_data.author_page_url %}
+            <a href="{{ author_data.author_page_url }}" class="btn btn-sm btn-soft" target="_blank" rel="noopener">
+                <i class="fas fa-link"></i> Audible Profile
+            </a>
+            {% endif %}
+            <a href="/authors/api/export?format=json&include_books=true&include_stats=true" class="btn btn-sm btn-soft">
+                <i class="fas fa-file-export"></i> Export JSON
+            </a>
+        </div>
+
+        {% if author_data.author_bio %}
+        <p class="text-sm text-base-content/70 leading-relaxed mb-5">{{ author_data.author_bio }}</p>
+        {% endif %}
+
+        <div class="rounded-xl border border-base-content/10 bg-base-200 px-4 py-2 mb-3">
+            <div class="author-kv">
+                <span class="author-kv-label">Total hours</span>
+                <span class="author-kv-value">{{ author_data.total_hours }} hrs</span>
+            </div>
+            <div class="author-kv">
+                <span class="author-kv-label">Series count</span>
+                <span class="author-kv-value">{{ author_data.series_count }}</span>
+            </div>
+            <div class="author-kv">
+                <span class="author-kv-label">Standalone titles</span>
+                <span class="author-kv-value">{{ author_data.standalone_count }}</span>
+            </div>
+            <div class="author-kv">
+                <span class="author-kv-label">Completion</span>
+                <span class="author-kv-value">{{ author_data.completion_rate }}%</span>
+            </div>
+            <div class="py-2 border-b" style="border-color: color-mix(in oklch, var(--bc) 8%, transparent)">
+                <progress class="progress progress-primary w-full" value="{{ author_data.completion_rate }}" max="100"></progress>
+            </div>
+            <div class="author-kv">
+                <span class="author-kv-label">Owned</span>
+                <span class="author-kv-value">{{ author_data.owned_count }}</span>
+            </div>
+            <div class="author-kv">
+                <span class="author-kv-label">Missing</span>
+                <span class="author-kv-value">{{ author_data.missing_count }}</span>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="author-col-right space-y-6">
+
+        <div class="grid gap-4 md:grid-cols-2">
+            <div class="rounded-xl border border-base-content/10 bg-base-200 px-4 py-4">
+                <h2 class="text-sm font-semibold mb-3">Highlights</h2>
+                <div class="author-kv">
+                    <span class="author-kv-label">Recent addition</span>
+                    <span class="author-kv-value truncate max-w-[55%] text-right">{{ author_data.recent_book }}</span>
+                </div>
+                <div class="author-kv">
+                    <span class="author-kv-label">Primary publisher</span>
+                    <span class="author-kv-value truncate max-w-[55%] text-right">{{ author_data.primary_publisher }}</span>
+                </div>
+                <div class="author-kv">
+                    <span class="author-kv-label">Most common narrator</span>
+                    <span class="author-kv-value truncate max-w-[55%] text-right">{{ author_data.most_common_narrator }}</span>
+                </div>
+                <p class="text-xs text-base-content/40 mt-3 pt-2 border-t border-base-content/10">
+                    Last metadata sync: {{ author_data.last_fetched_at or 'Unknown' }}
+                </p>
+            </div>
+            <div class="rounded-xl border border-base-content/10 bg-base-200 px-4 py-4">
+                <h2 class="text-sm font-semibold mb-3">Catalogue Coverage</h2>
+                <div class="author-kv">
+                    <span class="author-kv-label">Total titles tracked</span>
+                    <span class="author-kv-value">{{ catalogue.catalogue_size }}</span>
+                </div>
+                <div class="author-kv">
+                    <span class="author-kv-label">Library coverage</span>
+                    <span class="author-kv-value">{{ catalogue.coverage_percentage }}%</span>
+                </div>
+                <div class="author-kv">
+                    <span class="author-kv-label">Missing titles</span>
+                    <span class="author-kv-value">{{ catalogue.missing_books|length }}</span>
+                </div>
+                {% if catalogue.catalogue_error %}
+                <div class="alert alert-warning mt-3 text-xs py-2">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>{{ catalogue.catalogue_error }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="adShowHiddenWrap" class="hidden flex justify-end mb-2">
+            <label class="flex items-center gap-2 text-sm text-base-content/60 cursor-pointer select-none">
+                <input type="checkbox" id="adShowHiddenToggle" class="checkbox checkbox-sm">
+                <span id="adShowHiddenLabel">Show hidden titles</span>
+            </label>
+        </div>
+
+        <div>
+            <h2 class="text-sm font-semibold mb-3">Series Overview</h2>
+            {% if catalogue.series_catalog %}
+            <div class="space-y-3">
+                {% for series_name, books in catalogue.series_catalog.items() %}
+                <details class="rounded-xl border border-base-content/10 bg-base-200 overflow-hidden" {% if loop.first %}open{% endif %}>
+                    <summary class="px-4 py-3 flex items-center justify-between gap-3 cursor-pointer select-none list-none">
+                        <span class="font-semibold text-sm">{{ series_name }}</span>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-base-content/60">{{ books|length }} titles</span>
+                            {% if books|selectattr('in_library')|list|length < books|length %}
+                            <button type="button" class="btn btn-xs btn-soft btn-primary js-import-series" data-author="{{ author_data.name }}" data-series="{{ series_name }}">
+                                <i class="fas fa-plus-circle"></i> Import Series
+                            </button>
+                            {% endif %}
+                        </div>
+                    </summary>
+                    <div class="overflow-x-auto border-t border-base-content/10">
+                        <table class="table table-xs">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Seq</th>
+                                    <th>Runtime</th>
+                                    <th>Release</th>
+                                    <th>Rating</th>
+                                    <th>Catalogue #</th>
+                                    <th>ASIN</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for book in books %}
+                                <tr class="author-book-row{{ '' if book.monitored else ' opacity-50' }}" data-monitored="{{ 'true' if book.monitored else 'false' }}">
+                                    <td class="font-medium">{{ book.title }}</td>
+                                    <td>{{ book.sequence or '-' }}</td>
+                                    <td>{{ book.runtime or '-' }}</td>
+                                    <td>{{ book.release_date or '-' }}</td>
+                                    <td>{{ book.rating or 'N/A' }}</td>
+                                    <td>{{ book.catalogue_index or '-' }}</td>
+                                    <td class="font-mono">{{ book.asin or '-' }}</td>
+                                    <td>
+                                        <span class="badge {{ 'badge-success badge-soft' if book.in_library else 'badge-warning badge-soft' }}">
+                                            {{ book.status if book.status else ('Owned' if book.in_library else 'Wanted') }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="flex items-center justify-center gap-1">
+                                            {% if book.asin and not book.in_library %}
+                                            <button type="button" class="btn btn-xs btn-soft btn-primary js-import-book" data-author="{{ author_data.name }}" data-asin="{{ book.asin }}" title="Import this title">
+                                                <i class="fas fa-download"></i>
+                                            </button>
+                                            {% endif %}
+                                            {% if book.asin %}
+                                            <button type="button" class="btn btn-xs btn-ghost js-toggle-monitored"
+                                                    data-asin="{{ book.asin }}"
+                                                    data-title="{{ book.title }}"
+                                                    data-author="{{ author_data.name }}"
+                                                    data-series-title="{{ series_name }}"
+                                                    data-monitored="{{ 'true' if book.monitored else 'false' }}"
+                                                    title="{{ 'Hide this title' if book.monitored else 'Unhide this title' }}">
+                                                <i class="fas {{ 'fa-eye-slash' if book.monitored else 'fa-eye' }}"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-base-content/60">No series information available.</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold">Standalone Titles</h2>
+                {% if catalogue.standalone_catalog|selectattr('in_library')|list|length < catalogue.standalone_catalog|length %}
+                <button type="button" class="btn btn-xs btn-soft btn-primary js-import-standalone" data-author="{{ author_data.name }}">
+                    <i class="fas fa-plus-circle"></i> Import Standalones
+                </button>
+                {% endif %}
+            </div>
+            {% if catalogue.standalone_catalog %}
+            <div class="rounded-xl border border-base-content/10 bg-base-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="table table-xs">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Runtime</th>
+                                <th>Release</th>
+                                <th>Catalogue #</th>
+                                <th>ASIN</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for book in catalogue.standalone_catalog %}
+                            <tr class="author-book-row{{ '' if book.monitored else ' opacity-50' }}" data-monitored="{{ 'true' if book.monitored else 'false' }}">
+                                <td class="font-medium">{{ book.title }}</td>
+                                <td>{{ book.runtime or '-' }}</td>
+                                <td>{{ book.release_date or '-' }}</td>
+                                <td>{{ book.catalogue_index or '-' }}</td>
+                                <td class="font-mono">{{ book.asin or '-' }}</td>
+                                <td>
+                                    <span class="badge {{ 'badge-success badge-soft' if book.in_library else 'badge-warning badge-soft' }}">
+                                        {{ book.status if book.status else ('Owned' if book.in_library else 'Wanted') }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        {% if book.asin and not book.in_library %}
+                                        <button type="button" class="btn btn-xs btn-soft btn-primary js-import-book" data-author="{{ author_data.name }}" data-asin="{{ book.asin }}">
+                                            <i class="fas fa-download"></i>
+                                        </button>
+                                        {% elif not book.asin %}
+                                        <span class="text-xs text-base-content/50">N/A</span>
+                                        {% endif %}
+                                        {% if book.asin %}
+                                        <button type="button" class="btn btn-xs btn-ghost js-toggle-monitored"
+                                                data-asin="{{ book.asin }}"
+                                                data-title="{{ book.title }}"
+                                                data-author="{{ author_data.name }}"
+                                                data-series-title=""
+                                                data-monitored="{{ 'true' if book.monitored else 'false' }}"
+                                                title="{{ 'Hide this title' if book.monitored else 'Unhide this title' }}">
+                                            <i class="fas {{ 'fa-eye-slash' if book.monitored else 'fa-eye' }}"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-sm text-base-content/60">No standalone titles recorded.</p>
+            {% endif %}
+        </div>
+
+    </div>
+
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/author_detail.js') }}"></script>
+{% endblock %}

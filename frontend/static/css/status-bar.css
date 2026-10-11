@@ -1,0 +1,164 @@
+/* --- Sidebar activity panel ---------------------------------------------- */
+/* Matches the sidebar's Outfit font and sizing. */
+
+.sidebar-activity-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 0.25rem;
+    background: color-mix(in srgb, var(--bc) 5%, transparent);
+    font-family: 'Outfit', var(--font-sans, sans-serif);
+}
+
+.activity-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.activity-icon {
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    width: 0.9rem;
+    text-align: center;
+    opacity: 0.7;
+}
+
+span.activity-icon.loading {
+    width: 1rem;
+    height: 0.75rem;
+    opacity: 1;
+    --loading-size: 1rem;
+}
+
+@keyframes activity-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+@keyframes activity-pulse {
+    0%, 100% { opacity: 0.7; }
+    50%       { opacity: 1;   }
+}
+
+.activity-icon--spin {
+    animation: activity-spin 1.4s linear infinite;
+    opacity: 1;
+}
+
+.activity-icon--spin.state-searching {
+    animation: activity-pulse 1.2s ease-in-out infinite;
+}
+
+.activity-title {
+    flex: 1;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--bc);
+    white-space: normal;
+    word-break: break-word;
+    min-width: 0;
+    line-height: 1.35;
+}
+
+.activity-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding-left: 1.4rem;
+    margin-top: 0.1rem;
+}
+
+.activity-pct {
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: color-mix(in srgb, var(--bc) 55%, transparent);
+    font-family: 'Outfit', var(--font-sans, sans-serif);
+    margin-left: auto;
+}
+
+.activity-badge {
+    flex-shrink: 0;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.25rem;
+    font-family: 'Outfit', var(--font-sans, sans-serif);
+}
+
+.activity-badge.state-running,
+.activity-badge.state-downloading,
+.activity-badge.state-audible-downloading,
+.activity-badge.state-converting,
+.activity-badge.state-processing    { background: color-mix(in srgb, var(--p)  18%, transparent); color: var(--p);  }
+.activity-badge.state-importing     { background: color-mix(in srgb, var(--in) 18%, transparent); color: var(--in); }
+.activity-badge.state-searching     { background: color-mix(in srgb, var(--p)  18%, transparent); color: var(--p);  }
+
+.activity-icon.state-running,
+.activity-icon.state-downloading,
+.activity-icon.state-audible-downloading,
+.activity-icon.state-converting,
+.activity-icon.state-processing,
+.activity-icon.state-searching      { color: var(--p); }
+.activity-icon.state-importing      { color: var(--in); }
+
+.activity-badge.state-queued        { background: color-mix(in srgb, var(--bc) 10%, transparent); color: color-mix(in srgb, var(--bc) 55%, transparent); }
+.activity-badge.state-paused        { background: color-mix(in srgb, var(--wa) 18%, transparent); color: var(--wa); }
+.activity-badge.state-found         { background: color-mix(in srgb, var(--su) 14%, transparent); color: var(--su); }
+.activity-icon.state-queued,
+.activity-icon.state-paused         { color: var(--wa); }
+.activity-icon.state-found          { color: var(--su); }
+
+.activity-badge.state-seeding,
+.activity-badge.state-seeding-complete { background: color-mix(in srgb, #22c55e 16%, transparent); color: #22c55e; }
+.activity-icon.state-seeding,
+.activity-icon.state-seeding-complete  { color: #22c55e; }
+
+.activity-badge.state-completed,
+.activity-badge.state-complete,
+.activity-badge.state-imported      { background: color-mix(in srgb, var(--su) 18%, transparent); color: var(--su); }
+.activity-icon.state-completed,
+.activity-icon.state-complete,
+.activity-icon.state-imported       { color: var(--su); }
+
+.activity-badge.state-failed,
+.activity-badge.state-download-failed,
+.activity-badge.state-conversion-failed,
+.activity-badge.state-import-failed,
+.activity-badge.state-search-failed { background: color-mix(in srgb, var(--er) 18%, transparent); color: var(--er); }
+.activity-icon.state-failed,
+.activity-icon.state-download-failed,
+.activity-icon.state-conversion-failed,
+.activity-icon.state-import-failed,
+.activity-icon.state-search-failed  { color: var(--er); }
+
+.activity-badge.state-cancelled     { background: color-mix(in srgb, var(--bc) 10%, transparent); color: color-mix(in srgb, var(--bc) 45%, transparent); }
+.activity-badge.state-warning       { background: color-mix(in srgb, var(--wa) 18%, transparent); color: var(--wa); }
+.activity-icon.state-cancelled      { color: color-mix(in srgb, var(--bc) 40%, transparent); }
+.activity-icon.state-warning        { color: var(--wa); }
+
+.activity-progress-track {
+    width: 100%;
+    height: 0.25rem;
+    background: color-mix(in srgb, var(--bc) 10%, transparent);
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+.activity-progress-fill {
+    height: 100%;
+    border-radius: 1rem;
+    background: var(--p);
+    width: 0%;
+    /* Linear glide between ~1s socket updates so the bar moves continuously. */
+    transition: width 0.9s linear;
+}
+
+.activity-progress-fill.state-converting { background: var(--wa); }
+.activity-progress-fill.state-importing  { background: var(--in); }
+.activity-progress-fill.state-seeding    { background: #22c55e; }

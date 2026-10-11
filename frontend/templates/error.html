@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Error - AuralArchive{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[60vh]">
+    <div class="text-center">
+        <i class="fas fa-exclamation-triangle text-6xl text-error mb-4"></i>
+        <h1 class="text-4xl font-bold mb-4">Oops! Something went wrong</h1>
+        <p class="text-lg text-base-content/60 mb-8">{{ error or "An unexpected error occurred" }}</p>
+        <div class="flex gap-4 justify-center">
+            <a href="/" class="btn btn-soft btn-primary">
+                <i class="fas fa-home"></i> Go Home
+            </a>
+            <button onclick="history.back()" class="btn btn-soft">
+                <i class="fas fa-arrow-left"></i> Go Back
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

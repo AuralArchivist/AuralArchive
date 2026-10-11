@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Release Calendar · AuralArchive{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/release-calendar.css') }}?v=7">
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto w-full" style="max-width:1760px;">
+    <div id="releaseCalendar" data-release-calendar data-mode="schedule" aria-live="polite"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/release-calendar.js') }}?v=6"></script>
+<script>window.ReleaseCalendar.mountAll();</script>
+{% endblock %}

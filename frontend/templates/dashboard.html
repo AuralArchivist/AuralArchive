@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}?v=6">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/release-calendar.css') }}?v=7">
+{% endblock %}
+
+{% block content %}
+<div class="dash-page">
+
+    <section class="dash-stats">
+        <div class="dash-stat c-p">
+            <div class="dash-stat-ico"><i class="fas fa-book"></i></div>
+            <span class="dash-k">Total Books</span>
+            <span class="dash-v">{{ library_stats.get('total_books', 0) }}</span>
+            <span class="dash-d">Across your entire collection</span>
+        </div>
+        <div class="dash-stat c-in">
+            <div class="dash-stat-ico"><i class="fas fa-user-pen"></i></div>
+            <span class="dash-k">Authors</span>
+            <span class="dash-v">{{ library_stats.get('total_authors', 0) }}</span>
+            <span class="dash-d">Unique voices in the archive</span>
+        </div>
+        <div class="dash-stat c-su">
+            <div class="dash-stat-ico"><i class="fas fa-clock"></i></div>
+            <span class="dash-k">Listening Hours</span>
+            <span class="dash-v">{{ library_stats.get('total_runtime_hours', 0) }}</span>
+            <span class="dash-d">Estimated total runtime</span>
+        </div>
+        <div class="dash-stat c-wa">
+            <div class="dash-stat-ico"><i class="fas fa-bolt"></i></div>
+            <span class="dash-k">This Week</span>
+            <span class="dash-v">{{ activity_stats.get('total_activity', 0) }}</span>
+            <span class="dash-d">Additions &amp; updates in 7 days</span>
+        </div>
+    </section>
+
+    <section class="dash-grid">
+        <div class="dash-main">
+            <div class="dash-sec-head">
+                <div class="dash-eyebrow">
+                    <span><i class="fas fa-wand-magic-sparkles"></i> Recent Additions</span>
+                    <small>Fresh stories that just entered your library</small>
+                </div>
+                <a href="{{ url_for('library.library_page') }}" class="dash-view-btn"><i class="fas fa-book"></i> View Library</a>
+            </div>
+            {% if recent_books %}
+                <div class="dash-books">
+                    {% for book in recent_books %}
+                        {% set art = book['Cover Image'] or url_for('static', filename='images/auralarchive_logo.png') %}
+                        {% set last_activity = book['Updated At'] or book['Created At'] %}
+                        <a href="{{ url_for('library.library_page') }}?book={{ book['ID'] }}" class="dash-book-card">
+                            <img src="{{ art }}" alt="{{ book['Title'] }}" class="dash-book-cover" loading="lazy">
+                            <div class="dash-book-body">
+                                <h3 class="dash-book-title">{{ book['Title'] }}</h3>
+                                <p class="dash-book-author">{{ book['Author'] }}</p>
+                                <div class="dash-chips">
+                                    {% if book['Status'] %}<span class="dash-chip">{{ book['Status'] }}</span>{% endif %}
+                                    {% if book['Overall Rating'] and book['Overall Rating'] != 'N/A' %}
+                                        <span class="dash-chip"><i class="fas fa-star"></i>{{ book['Overall Rating'] }}</span>
+                                    {% endif %}
+                                    {% if book['Runtime'] %}<span class="dash-chip"><i class="fas fa-clock"></i>{{ book['Runtime'] }}</span>{% endif %}
+                                </div>
+                                <p class="dash-book-summary">
+                                    {{ (book['Summary'] or 'No summary yet.')|striptags|truncate(140, True, '…') }}
+                                </p>
+                                <p class="dash-book-time">{{ last_activity or 'New addition' }}</p>
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="dash-empty">
+                    <i class="fas fa-book-open"></i>
+                    <span>No recent additions recorded yet. Start exploring the catalog!</span>
+                </div>
+            {% endif %}
+        </div>
+
+        <aside class="dash-side">
+            <section class="dash-panel">
+                <div class="dash-panel-head">
+                    <span class="dash-eyebrow-inline"><i class="fas fa-download"></i> Active Downloads</span>
+                    <button id="dashQueueRefreshBtn" class="dash-refresh" title="Refresh download queue" aria-label="Refresh download queue">
+                        <i class="fas fa-rotate-right"></i>
+                    </button>
+                </div>
+                <div id="dashQueueContent" class="dash-queue">
+                {% if download_snapshot.connected and download_snapshot.downloads %}
+                    <ul class="space-y-3 text-sm">
+                        {% for torrent in download_snapshot.downloads %}
+                            <li class="border border-base-content/10 rounded-lg p-3 bg-base-100">
+                                <p class="font-semibold text-base-content/80 leading-snug">{{ torrent.name }}</p>
+                                <div class="mt-2 flex items-center justify-between text-xs text-base-content/60">
+                                    <span>{{ (torrent.progress or 0)|round(1) }}%</span>
+                                    <span>{{ (torrent.download_speed or 0)/1024|round(1) }} KB/s</span>
+                                </div>
+                                <progress class="progress progress-primary w-full h-2 mt-2" value="{{ torrent.progress or 0 }}" max="100"></progress>
+                                <div class="mt-2 flex items-center gap-2 text-[0.65rem] text-base-content/50 uppercase tracking-[0.2em]">
+                                    <span>{{ torrent.state }}</span>
+                                    {% if torrent.category %}<span>&middot;</span><span>{{ torrent.category }}</span>{% endif %}
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% elif download_snapshot.connected %}
+                    <p class="dash-queue-empty">No active downloads right now.</p>
+                {% else %}
+                    <p class="dash-queue-empty">{{ download_snapshot.error or 'Download client unavailable.' }}</p>
+                {% endif %}
+                </div>
+            </section>
+        </aside>
+    </section>
+
+    <section class="dash-releases">
+        <div class="dash-sec-head">
+            <div class="dash-eyebrow">
+                <span><i class="fas fa-calendar-days"></i> Releasing This Week</span>
+                <small>Upcoming titles from your watched tags and keywords, and your wanted books</small>
+            </div>
+            <a href="/calendar" class="dash-view-btn"><i class="fas fa-calendar-days"></i> Release Calendar</a>
+        </div>
+        <div id="dashReleaseCalendar" data-release-calendar data-mode="strip"></div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    'use strict';
+    const btn = document.getElementById('dashQueueRefreshBtn');
+    const panel = document.getElementById('dashQueueContent');
+    if (!btn || !panel) return;
+
+    function renderSnapshot(snap) {
+        if (snap.connected && snap.downloads && snap.downloads.length) {
+            const items = snap.downloads.map(t => {
+                const progress = (t.progress || 0).toFixed(1);
+                const speed = ((t.download_speed || 0) / 1024).toFixed(1);
+                const category = t.category ? `<span>&middot;</span><span>${AA.escapeHtml(t.category)}</span>` : '';
+                return [
+                    `<li class="border border-base-content/10 rounded-lg p-3 bg-base-100">`,
+                    `<p class="font-semibold text-base-content/80 leading-snug">${AA.escapeHtml(t.name)}</p>`,
+                    `<div class="mt-2 flex items-center justify-between text-xs text-base-content/60">`,
+                    `<span>${progress}%</span><span>${speed} KB/s</span></div>`,
+                    `<progress class="progress progress-primary w-full h-2 mt-2" value="${progress}" max="100"></progress>`,
+                    `<div class="mt-2 flex items-center gap-2 text-[0.65rem] text-base-content/50 uppercase tracking-[0.2em]">`,
+                    `<span>${AA.escapeHtml(t.state || '')}</span>${category}</div>`,
+                    `</li>`,
+                ].join('');
+            }).join('');
+            panel.innerHTML = `<ul class="space-y-3 text-sm">${items}</ul>`;
+        } else if (snap.connected) {
+            panel.innerHTML = '<p class="text-xs text-base-content/60">No active downloads right now.</p>';
+        } else {
+            panel.innerHTML = `<p class="text-xs text-base-content/60">${AA.escapeHtml(snap.error || 'Download client unavailable.')}</p>`;
+        }
+    }
+
+    btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.querySelector('i').classList.add('fa-spin');
+        try {
+            const { ok, data } = await AA.apiFetch('/api/dashboard/download-snapshot');
+            if (ok && data) renderSnapshot(data);
+        } catch (_) { /* silent - stale data is fine */ }
+        finally {
+            btn.disabled = false;
+            btn.querySelector('i').classList.remove('fa-spin');
+        }
+    });
+})();
+</script>
+<script src="{{ url_for('static', filename='js/release-calendar.js') }}?v=6"></script>
+<script>window.ReleaseCalendar.mountAll();</script>
+{% endblock %}

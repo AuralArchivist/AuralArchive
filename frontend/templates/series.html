@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Series - AuralArchive{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/series.css') }}?v=4">
+{% endblock %}
+
+{% block content %}
+<div class="w-full series-page">
+
+    <div class="series-toolbar" role="group" aria-label="Series filters">
+
+        <div class="s-field grow">
+            <label for="searchInput" class="s-label">Search Series</label>
+            <input type="text" id="searchInput" placeholder="Search series by title..."
+                   class="input input-sm input-bordered w-full">
+        </div>
+
+        <div class="s-field">
+            <label for="sortFilter" class="s-label">Sort By</label>
+            <select id="sortFilter" class="select select-sm select-bordered w-full">
+                <option value="title">Title</option>
+                <option value="total_books">Book Count</option>
+                <option value="completion">Completion %</option>
+            </select>
+        </div>
+
+        <div class="s-field view-seg">
+            <span class="s-label">View</span>
+            <div class="join" role="group" aria-label="View options">
+                <button class="join-item btn btn-sm btn-soft" id="tableViewBtn" onclick="setView('table')" aria-label="Table view">
+                    <i class="fas fa-list"></i>
+                </button>
+                <button class="join-item btn btn-sm btn-soft btn-primary" id="compactViewBtn" onclick="setView('compact')" aria-label="Compact list view">
+                    <i class="fas fa-th-list"></i>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    {% include 'partials/loading-spinner.html' %}
+
+    {% set es_id = 'errorState' %}
+    {% set es_hidden = true %}
+    {% set es_icon = 'fa-exclamation-triangle' %}
+    {% set es_icon_class = 'text-error' %}
+    {% set es_title = 'Error Loading Series' %}
+    {% set es_message_id = 'errorMessage' %}
+    {% set es_retry_fn = 'loadSeries()' %}
+    {% include 'partials/empty-state.html' %}
+
+    {% set es_id = 'emptyState' %}
+    {% set es_hidden = true %}
+    {% set es_icon = 'fa-layer-group' %}
+    {% set es_title = 'No Series Found' %}
+    {% set es_body = 'Add books to your library that are part of a series' %}
+    {% set es_action_href = '/library' %}
+    {% set es_action_label = '<i class="fas fa-books"></i> Go to Library' %}
+    {% set es_message_id = undefined %}
+    {% set es_retry_fn = undefined %}
+    {% include 'partials/empty-state.html' %}
+
+    <div id="seriesContent" class="hidden">
+        
+        <div id="tableView" class="p-6 hidden">
+            <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                    <thead>
+                        <tr>
+                            <th>Series Title</th>
+                            <th class="text-center">Total Books</th>
+                            <th class="text-center">Owned</th>
+                            <th class="text-center">Missing</th>
+                            <th class="text-center">Progress</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="compactView" class="p-6">
+            <div class="space-y-2" id="compactList">
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<dialog id="seriesModal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box max-w-6xl">
+        <div id="seriesModalContent">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+        <div class="modal-action">
+            <form method="dialog">
+                <button class="btn btn-soft btn-md">Close</button>
+            </form>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/series.js') }}?v=3"></script>
+{% endblock %}

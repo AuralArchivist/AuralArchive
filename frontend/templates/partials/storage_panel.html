@@ -1,0 +1,141 @@
+{#
+    Storage locations panel - used by Settings > Storage and the first-run
+    storage step. Rendered by static/js/storage.js from /settings/api/storage.
+    Set `storage_mode = 'setup'` before including for the setup variant.
+#}
+{% set storage_mode = storage_mode|default('settings') %}
+{% set storage_folders = [
+    ('library', 'Library', 'Your organised books'),
+    ('downloads', 'Downloads', 'Download client output'),
+    ('import', 'Import', 'Manual drop folder'),
+    ('work', 'Work', 'Scratch space, auto-cleaned'),
+] %}
+<div id="storagePanel" data-mode="{{ storage_mode }}" data-continue-url="{{ url_for('main.index') }}">
+    <div id="storageNotices" class="aa-store-notices" aria-live="polite"></div>
+
+    <form id="storageForm" class="aa-card" data-own-dirty novalidate>
+        <div class="aa-card-head">
+            <div class="aa-ttl">
+                <b>Media Folders</b>
+                <span class="aa-sub" id="storageSubtitle">Leave blank to use the built-in folder</span>
+            </div>
+        </div>
+
+        <div class="aa-card-body">
+            {% for folder, label, desc in storage_folders %}
+            <div class="aa-store-row" data-storage-folder="{{ folder }}">
+                <label class="aa-store-name" for="storage_{{ folder }}">
+                    <span><b>{{ label }}</b><small>{{ desc }}</small></span>
+                </label>
+                <div class="aa-store-ctl">
+                    <div class="aa-store-input">
+                        <input id="storage_{{ folder }}" name="{{ folder }}" type="text"
+                               class="input input-bordered input-sm w-full font-mono"
+                               autocomplete="off" spellcheck="false"
+                               aria-describedby="storage_{{ folder }}_meta" />
+                        <button type="button" class="btn btn-ghost btn-sm hidden" data-role="reset"
+                                title="Use the built-in folder" aria-label="Use the built-in {{ label|lower }} folder">
+                            Reset
+                        </button>
+                        <span class="aa-store-lock hidden" data-role="lock" tabindex="0">
+                            Locked
+                        </span>
+                    </div>
+                    <div id="storage_{{ folder }}_meta" class="aa-store-meta" data-role="meta"></div>
+                    <div class="aa-store-flags" data-role="flags"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="aa-card-foot">
+            <span id="storageStatus" class="aa-hint" role="status"></span>
+            <div class="flex items-center gap-2">
+                {% if storage_mode == 'setup' %}
+                <a href="{{ url_for('main.index') }}" class="btn btn-ghost btn-sm">Skip for now</a>
+                <button type="submit" class="btn btn-primary btn-sm" id="storageSave">Save and continue</button>
+                {% else %}
+                <button type="submit" class="btn btn-primary btn-sm" id="storageSave" disabled>Save</button>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+
+    {% if storage_mode != 'setup' %}
+    <div class="aa-card" id="librariesCard">
+        <div class="aa-card-head">
+            <div class="aa-ttl">
+                <b>Libraries</b>
+                <span class="aa-sub">Books are imported into one of these. The first follows the Library folder above.</span>
+            </div>
+            <button type="button" id="librariesRepair" class="btn btn-ghost btn-xs" title="Set every book's library from where its file is">Repair assignments</button>
+        </div>
+        <div class="aa-card-body" style="padding:14px 18px;">
+            <div class="aa-split">
+                <aside>
+                    <div class="aa-list-head">
+                        <span class="aa-lt">Libraries</span>
+                        <button type="button" id="libraryAddButton" class="btn btn-outline btn-xs"><span>Add</span></button>
+                    </div>
+                    <div id="librariesList" class="aa-list"><div class="aa-list-empty">Loading…</div></div>
+                </aside>
+                <div>
+                <form id="libraryEditor" class="aa-card hidden" style="margin:0;" data-own-dirty novalidate>
+                    <div class="aa-card-head">
+                        <div class="aa-ttl"><b id="libraryEditorTitle">New Library</b><span id="libraryEditorSub" class="aa-sub"></span></div>
+                        <button type="button" id="libraryDelete" class="btn btn-outline btn-xs btn-error hidden">Delete</button>
+                    </div>
+                    <div class="aa-card-body">
+                        <div class="aa-grid">
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="library_name">Name</label>
+                                <input id="library_name" type="text" class="input input-bordered w-full" maxlength="60" placeholder="Kids" required>
+                            </div>
+                            <div class="aa-field">
+                                <label class="aa-flabel" for="library_template">Naming template</label>
+                                <select id="library_template" class="select select-bordered w-full"></select>
+                            </div>
+                            <div class="aa-field" style="grid-column:1/-1;">
+                                <label class="aa-flabel" for="library_root">Folder</label>
+                                <input id="library_root" type="text" class="input input-bordered w-full font-mono" autocomplete="off" spellcheck="false" placeholder="/library-kids">
+                                <span id="libraryRootHint" class="aa-hint">An existing folder AuralArchive can write to. It can't overlap another library or the downloads, import and work folders.</span>
+                            </div>
+                            <label class="aa-check"><input id="library_enabled" type="checkbox" class="checkbox checkbox-sm" checked> <span>Enabled</span></label>
+                            <label class="aa-check"><input id="library_default" type="checkbox" class="checkbox checkbox-sm"> <span>Default library</span></label>
+                        </div>
+                        <div id="libraryReassignRow" class="aa-field hidden" style="margin-top:12px;">
+                            <label class="aa-flabel" for="library_reassign">Move its books to</label>
+                            <select id="library_reassign" class="select select-bordered select-sm w-full"></select>
+                            <span class="aa-hint">The books are reassigned in AuralArchive only; their files stay where they are.</span>
+                        </div>
+                        <div id="libraryFlags" class="aa-store-flags" style="margin-top:10px;"></div>
+                    </div>
+                    <div class="aa-card-foot">
+                        <span id="libraryStatus" class="aa-hint" role="status"></span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="libraryCancel" class="btn btn-ghost btn-sm">Cancel</button>
+                            <button type="submit" id="librarySave" class="btn btn-primary btn-sm">Save</button>
+                        </div>
+                    </div>
+                </form>
+                <div id="libraryEmpty" class="aa-list-empty" style="padding:28px;">Select a library to edit it, or add one.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <details class="aa-card aa-store-appdata">
+        <summary class="aa-card-head">
+            <div class="aa-ttl">
+                <b>App Data</b>
+                <span class="aa-sub font-mono" id="storageAppDataSummary"></span>
+            </div>
+            <i class="fas fa-chevron-down aa-store-chevron" aria-hidden="true"></i>
+        </summary>
+        <div class="aa-card-body">
+            <dl id="storageAppData" class="aa-store-dl"></dl>
+            <p class="aa-hint aa-store-dl-hint">Settings, database, credentials, cache and logs. Chosen at startup with <code>AURALARCHIVE_DATA_DIR</code> (Docker: the <code>/config</code> mount). Back this folder up.</p>
+        </div>
+    </details>
+</div>

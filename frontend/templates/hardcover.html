@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% block title %}Hardcover · AuralArchive{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/discover.css') }}?v=1">
+<style>
+    /* Reuse the .discover-card layout (same card used on the Search/Discover
+       pages) for the Hardcover poster grids, instead of a bespoke card. */
+    .hc-grid{
+        display:grid;grid-template-columns:repeat(auto-fill,400px);
+        justify-content:center;gap:16px;grid-auto-rows:1fr;align-items:stretch;
+    }
+    @media(max-width:900px){.hc-grid{grid-template-columns:1fr;}}
+
+    /* Selection checkbox overlay for list-detail browsing ("select titles and
+       add them to the library"). */
+    .hc-card-select{position:absolute;top:8px;left:8px;z-index:2;width:20px;height:20px;cursor:pointer;}
+
+    /* Sticky bulk-add toolbar shown once at least one title is selected. */
+    .hc-bulk-toolbar{
+        position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;
+        background:var(--b1);border:1px solid var(--aa-line);border-radius:.25rem;
+        padding:10px 14px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <div class="pb-1 border-b border-base-content/10 flex items-center justify-between flex-wrap gap-2">
+        <div>
+            <h1 class="text-lg font-semibold uppercase tracking-[0.25em] text-base-content/70">Hardcover</h1>
+            <p class="text-sm text-base-content/50 mt-0.5">Trending titles, new releases, and your Hardcover shelves.</p>
+        </div>
+        <button class="btn btn-ghost btn-sm gap-2 hidden" id="hcPageRefreshBtn">
+            <i class="fas fa-rotate text-xs" aria-hidden="true"></i> Refresh Caches
+        </button>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl hidden" id="hcNotConnectedCard">
+        <div class="card-body items-center text-center py-10">
+            <i class="fas fa-book-open-reader text-3xl text-base-content/20 mb-2" aria-hidden="true"></i>
+            <h2 class="font-semibold text-base">Hardcover account not connected</h2>
+            <p class="text-sm text-base-content/50 max-w-md">
+                Connect your Hardcover account under
+                <a href="/settings#connected-services" class="link link-primary font-medium">Settings → Connected Services</a>
+                to browse trending titles, new releases, and sync your shelves.
+            </p>
+        </div>
+    </div>
+
+    <div id="hcConnectedContent" class="hidden space-y-6">
+
+        <div class="tabs tabs-border" role="tablist" id="hcTabs">
+            <button role="tab" class="tab tab-active" data-tab="trending">Trending</button>
+            <button role="tab" class="tab" data-tab="releases">New Releases</button>
+            <button role="tab" class="tab" data-tab="shelves">My Shelves</button>
+            <button role="tab" class="tab" data-tab="search">Search</button>
+            <button role="tab" class="tab" data-tab="lists">Lists</button>
+            <button role="tab" class="tab" data-tab="genres">Genres &amp; Moods</button>
+        </div>
+
+        <div id="hcPanel-trending" class="hc-panel space-y-4">
+            <div class="tabs tabs-box bg-base-200 w-fit" role="tablist" id="hcTrendingWindows">
+                <button role="tab" class="tab tab-active tab-sm" data-window="1m">1 Month</button>
+                <button role="tab" class="tab tab-sm" data-window="3m">3 Months</button>
+                <button role="tab" class="tab tab-sm" data-window="1y">1 Year</button>
+                <button role="tab" class="tab tab-sm" data-window="all">All-Time</button>
+            </div>
+            <p class="text-xs text-base-content/40" id="hcTrendingRefreshedAt"></p>
+            <div id="hcTrendingGrid" class="hc-grid"></div>
+            <div class="text-center text-base-content/40 py-8 hidden" id="hcTrendingEmpty">No trending data yet.</div>
+        </div>
+
+        <div id="hcPanel-releases" class="hc-panel hidden space-y-4">
+            <p class="text-xs text-base-content/40" id="hcReleasesRefreshedAt"></p>
+            <div id="hcReleasesGrid" class="hc-grid"></div>
+            <div class="text-center text-base-content/40 py-8 hidden" id="hcReleasesEmpty">No upcoming releases cached yet.</div>
+        </div>
+
+        <div id="hcPanel-shelves" class="hc-panel hidden space-y-4">
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Cover</th>
+                            <th>Title</th>
+                            <th>Author</th>
+                            <th>Status</th>
+                            <th>Owned</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hcShelvesBody"></tbody>
+                </table>
+            </div>
+            <div class="text-center text-base-content/40 py-8 hidden" id="hcShelvesEmpty">Nothing shelved on Hardcover yet.</div>
+        </div>
+
+        <div id="hcPanel-search" class="hc-panel hidden space-y-4">
+            <div class="flex gap-2 flex-wrap">
+                <input type="text" class="input input-bordered input-sm w-64" id="hcSearchInput" placeholder="Search Hardcover…" />
+                <select class="select select-bordered select-sm" id="hcSearchType">
+                    <option value="book">Books</option>
+                    <option value="author">Authors</option>
+                    <option value="series">Series</option>
+                    <option value="list">Lists</option>
+                </select>
+                <button class="btn btn-primary btn-sm" id="hcSearchBtn">Search</button>
+            </div>
+            <div id="hcSearchResults" class="hc-grid"></div>
+            <div class="text-center text-base-content/40 py-8 hidden" id="hcSearchEmpty">No results.</div>
+        </div>
+
+        <div id="hcPanel-lists" class="hc-panel hidden space-y-4">
+
+          <div id="hcListsBrowseView" class="space-y-4">
+            <div class="tabs tabs-box bg-base-200 w-fit" role="tablist" id="hcListsSort">
+                <button role="tab" class="tab tab-active tab-sm" data-sort="featured">Featured</button>
+                <button role="tab" class="tab tab-sm" data-sort="popular">Popular</button>
+                <button role="tab" class="tab tab-sm" data-sort="new">New</button>
+                <button role="tab" class="tab tab-sm" data-sort="updated">Recently Updated</button>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+                <input type="text" class="input input-bordered input-sm w-64" id="hcListsInput" placeholder="Search public lists…" />
+                <button class="btn btn-primary btn-sm" id="hcListsBtn">Search</button>
+            </div>
+            <div id="hcListsResults" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+            <div class="text-center text-base-content/40 py-8 hidden" id="hcListsEmpty">No lists found.</div>
+          </div>
+
+          <div id="hcListDetailView" class="hidden space-y-4">
+            <button class="btn btn-ghost btn-sm gap-2" id="hcListDetailBack">
+                <i class="fas fa-arrow-left text-xs" aria-hidden="true"></i> Back to Lists
+            </button>
+            <div>
+                <h2 class="font-semibold text-base" id="hcListDetailName"></h2>
+                <p class="text-sm text-base-content/50 max-w-2xl" id="hcListDetailDescription"></p>
+            </div>
+            <div class="hc-bulk-toolbar hidden" id="hcListBulkToolbar">
+                <span class="text-sm" id="hcListSelectedCount">0 selected</span>
+                <button class="btn btn-primary btn-sm" id="hcListAddSelectedBtn">+ Add Selected to Library</button>
+                <button class="btn btn-ghost btn-sm" id="hcListClearSelectionBtn">Clear</button>
+            </div>
+            <div id="hcListDetailGrid" class="hc-grid"></div>
+            <div class="text-center text-base-content/40 py-8 hidden" id="hcListDetailEmpty">No audiobook titles found in this list.</div>
+            <div class="text-center hidden" id="hcListDetailLoadMoreWrap">
+                <button class="btn btn-ghost btn-sm" id="hcListDetailLoadMoreBtn">Load More</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="hcPanel-genres" class="hc-panel hidden space-y-4">
+            <div class="space-y-2">
+                <p class="text-xs font-semibold uppercase tracking-widest text-base-content/40">Genres</p>
+                <div class="flex flex-wrap gap-2" id="hcGenreChips"></div>
+            </div>
+            <div class="space-y-2">
+                <p class="text-xs font-semibold uppercase tracking-widest text-base-content/40">Moods</p>
+                <div class="flex flex-wrap gap-2" id="hcMoodChips"></div>
+            </div>
+            <div id="hcGenreResults" class="hc-grid"></div>
+            <div class="text-center text-base-content/40 py-8 hidden" id="hcGenreEmpty">No results.</div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/hardcover.js') }}"></script>
+{% endblock %}

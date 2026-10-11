@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Storage Setup · AuralArchive{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}?v=18">
+{% endblock %}
+
+{% block content %}
+<div class="aa-settings max-w-3xl mx-auto">
+    <div class="aa-phead">
+        <div class="aa-pl">
+            <div>
+                <h3>Where should your books live?</h3>
+                <p class="aa-pdesc">Step 2 of 2 &middot; The built-in folders work as-is. You can change this later in Settings &rsaquo; Storage.</p>
+            </div>
+        </div>
+    </div>
+    {% set storage_mode = 'setup' %}
+    {% include 'partials/storage_panel.html' %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/storage.js') }}?v=5"></script>
+{% endblock %}

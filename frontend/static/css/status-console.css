@@ -1,0 +1,92 @@
+/* --- Global status console: flat footer ---------------------------------- */
+
+
+.status-console-flat {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0.35rem 0.75rem;
+}
+
+.status-console-flat-card {
+    background-color: color-mix(in srgb, var(--b2) 80%, rgba(0, 0, 0, 0.4));
+    border: 1px solid color-mix(in srgb, var(--bc) 70%, transparent);
+    border-bottom: none;
+    border-radius: 0.25rem 0.25rem 0 0;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(8px);
+    padding: 0.4rem 0.75rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.status-console-flat-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.status-console-flat-controls {
+    display: inline-flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.status-console-live-dot {
+    display: inline-flex;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background-color: currentColor;
+    animation: status-console-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes status-console-pulse {
+    0%, 100% {
+        transform: scale(0.85);
+        opacity: 0.6;
+    }
+    50% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.status-console-flat-log {
+    max-height: 4.5rem;
+    overflow: hidden;
+    font-size: 0.8rem;
+}
+
+.status-console-flat-log pre {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.status-console-empty {
+    opacity: 0.65;
+}
+
+@media (max-width: 768px) {
+    .status-console-flat {
+        padding: 0.25rem 0.5rem;
+    }
+    .status-console-flat-card {
+        padding: 0.4rem 0.5rem 0.5rem;
+    }
+    .status-console-flat-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+    }
+    .status-console-flat-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+}

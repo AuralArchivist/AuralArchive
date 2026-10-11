@@ -1,0 +1,74 @@
+# Docker build context is app/. Patterns are anchored to that root, so
+# anything that can appear at any depth needs a **/ prefix.
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/*.so
+**/.pytest_cache/
+.venv/
+venv/
+env/
+ENV/
+
+# Git / IDEs
+**/.git
+**/.gitignore
+.github/
+**/.idea
+**/.vscode
+**/.DS_Store
+
+# Runtime data - settings, secrets, databases, caches, downloads. Lives in
+# config/ and media/ (or Docker volumes); must never be baked into the image.
+config/
+**/logs/
+**/*.log
+**/*.log.*
+frontend/static/cache/
+**/cache/
+**/*.cache
+**/*.db
+**/*.db-wal
+**/*.db-shm
+backups/
+**/*.backup
+
+# Secrets / local config
+**/.env
+**/.env.*
+!.env.example
+**/*.key
+**/*.pem
+
+# Frontend build tooling - the Dockerfile's CSS stage installs its own
+**/node_modules/
+
+# Docker/dev tooling - entrypoint.sh is COPYed by the Dockerfile, keep it;
+# everything else in docker/ and all of dev/ is not needed in the image.
+docker/*
+!docker/entrypoint.sh
+dev/
+
+# Media files
+media/
+**/*.mp3
+**/*.m4a
+**/*.m4b
+**/*.aax
+**/*.aaxc
+
+# Tests
+**/test_*.py
+**/*_test.py
+
+# Temporary files
+**/*.tmp
+**/*.temp
+**/*.pid
+**/*.seed
+
+# Documentation (docs/ is served nowhere in the app)
+docs/
+**/*.md
+!README.md

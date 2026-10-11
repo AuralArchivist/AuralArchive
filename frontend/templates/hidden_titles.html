@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Hidden Titles - AuralArchive{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/library.css') }}?v=3">
+{% endblock %}
+
+{% block content %}
+<div class="w-full" id="hiddenTitlesPage">
+
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <a href="/settings" class="btn btn-ghost btn-xs mb-2 -ml-1 text-base-content/60">
+                Back to Settings
+            </a>
+            <h1 class="text-2xl font-bold flex items-center gap-2">
+                Hidden Titles
+            </h1>
+            <p class="text-sm text-base-content/60 mt-1">
+                Titles you've hidden from Series and Author browsing. Owned titles stay in your library but
+                are excluded from automatic search; not-yet-owned titles are excluded from tracking entirely.
+                Unhide a title to bring it back.
+            </p>
+        </div>
+    </div>
+
+    <div id="htLoadingState" class="flex justify-center items-center py-24">
+        <span class="loading loading-spinner loading-lg"></span>
+    </div>
+
+    <div id="htEmptyState" class="hidden text-center py-24 text-base-content/40">
+        <p class="text-lg">No hidden titles.</p>
+    </div>
+
+    <div id="htList" class="hidden rounded-xl border border-base-content/10 bg-base-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Series</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="htTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/hidden_titles.js') }}?v=2"></script>
+{% endblock %}

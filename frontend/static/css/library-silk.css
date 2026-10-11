@@ -1,0 +1,259 @@
+/* --- Library page -------------------------------------------------------- */
+/* Minimal custom CSS; colors come from the daisyUI theme. */
+
+/* Tailwind v4 compiles .hidden without !important and this file loads after it,
+   so the display utilities here would win; re-assert the hide rule. */
+.hidden {
+    display: none !important;
+}
+
+.lib-list-row.selected td,
+.lib-table-row.selected td {
+    background: color-mix(in oklch, var(--p), transparent 88%) !important;
+}
+
+.selection-mode .lib-sel-col {
+    display: table-cell !important;
+}
+.library-toolbar {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.library-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.library-field--search {
+    flex: 2;
+    min-width: 200px;
+    max-width: 300px;
+}
+
+.library-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: color-mix(in oklch, var(--bc), transparent 40%);
+}
+
+.library-size {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 140px;
+}
+
+.library-size__control {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0 0.5rem;
+    height: 2rem;
+    border-radius: var(--radius-field, 0.5rem);
+    border: 1px solid color-mix(in oklch, var(--bc), transparent 80%);
+    background: color-mix(in oklch, var(--b1), transparent 5%);
+}
+
+.library-size__control .range {
+    height: 0.5rem;
+}
+
+.library-size__control .range::-webkit-slider-runnable-track { height: 4px; }
+.library-size__control .range::-moz-range-track { height: 4px; }
+
+.library-toolbar-end {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.library-grid-panel {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+}
+
+.library-grid {
+    grid-auto-rows: 1fr;
+}
+
+.selection-toolbar {
+    position: sticky;
+    top: 1rem;
+    z-index: 12;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+@media (max-width: 640px) {
+    .library-field--search { max-width: 100%; flex: 1 1 100%; }
+    .library-toolbar-end { margin-left: 0; }
+}
+
+@media (min-width: 768px) {
+    .drawer {
+        display: grid;
+        grid-template-columns: 16rem minmax(0, 1fr);
+    }
+
+    .drawer-side {
+        transform: none !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: relative !important;
+        transition: none !important;
+    }
+
+    .drawer-side > .drawer-overlay {
+        display: none !important;
+    }
+
+    .drawer.drawer-open .drawer-content {
+        min-width: 0;
+        transition: none !important;
+    }
+}
+
+.book-card {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: var(--radius-box) !important;
+}
+
+.book-card figure {
+    border-radius: var(--radius-box) var(--radius-box) 0 0 !important;
+}
+
+.book-card figure img {
+    border-radius: var(--radius-box) var(--radius-box) 0 0 !important;
+}
+
+.book-card:hover {
+    transform: translateY(-6px);
+}
+
+.book-cover-container {
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    transition: all 0.3s ease;
+}
+
+.book-cover-container img {
+    transition: transform 300ms ease;
+}
+
+.book-card:hover .book-cover-container img {
+    transform: scale(1.03);
+}
+
+#booksGrid.size-xs {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+#booksGrid.size-sm {
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+}
+
+#booksGrid.size-md {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+#booksGrid.size-lg {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+
+#booksGrid.size-xl {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+@media (max-width: 640px) {
+    #booksGrid.size-xs,
+    #booksGrid.size-sm,
+    #booksGrid.size-md,
+    #booksGrid.size-lg,
+    #booksGrid.size-xl {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+}
+
+.selection-mode .selection-checkbox {
+    display: block !important;
+}
+
+.selection-checkbox {
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+#selectionToolbar {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.line-clamp-1 {
+    display: -webkit-box;
+    line-clamp: 1;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.line-clamp-2 {
+    display: -webkit-box;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.aspect-\[2\/3\] {
+    aspect-ratio: 2 / 3;
+}
+
+@media print {
+    .navbar,
+    .btn,
+    .selection-checkbox,
+    #selectionToolbar {
+        display: none !important;
+    }
+    
+    .book-card {
+        break-inside: avoid;
+    }
+}

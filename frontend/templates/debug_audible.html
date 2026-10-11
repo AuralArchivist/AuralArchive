@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+
+{% block title %}Audible API Tester - AuralArchive{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Tailwind's precompiled bundle is missing top-full/left-0/z-20/max-h-60 on this
+       page (they're not used anywhere else in the app), so the dropdown and result
+       panel are hand-styled here instead of guessing at utility-class availability. */
+    .api-grid {
+        display: grid;
+        gap: 1.5rem;
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+    @media (min-width: 1024px) {
+        .api-grid {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        }
+    }
+    /* min-width: 0 lets each column shrink below its content's intrinsic size, so the
+       long unbroken JSON inside .api-result-pre can actually scroll instead of forcing
+       the whole grid to grow sideways. */
+    .api-grid > * {
+        min-width: 0;
+    }
+
+    .api-dropdown-wrap {
+        position: relative;
+    }
+    .api-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        z-index: 30;
+        margin-top: 0.25rem;
+        max-height: 15rem;
+        overflow-y: auto;
+        background: var(--b1);
+        border: 1px solid color-mix(in oklch, var(--bc) 10%, transparent);
+        border-radius: var(--radius-lg, 0.5rem);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    }
+    .api-dropdown.hidden { display: none; }
+
+    .api-result-meta {
+        font-family: ui-monospace, monospace;
+        font-size: 0.75rem;
+        color: color-mix(in oklch, var(--bc) 55%, transparent);
+        word-break: break-all;
+        overflow-wrap: anywhere;
+    }
+    .api-result-pre {
+        width: 100%;
+        max-height: 640px;
+        overflow: auto;
+        margin: 0;
+        padding: 0.75rem;
+        font-family: ui-monospace, monospace;
+        font-size: 0.75rem;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        background: var(--b1);
+        border: 1px solid color-mix(in oklch, var(--bc) 10%, transparent);
+        border-radius: var(--radius-lg, 0.5rem);
+        box-sizing: border-box;
+    }
+
+    .api-status-pill {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 2px 10px;
+        border-radius: 999px;
+    }
+    .api-status-pill.success { background: color-mix(in oklch, var(--su) 18%, transparent); color: var(--su); }
+    .api-status-pill.error { background: color-mix(in oklch, var(--er) 18%, transparent); color: var(--er); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="w-full">
+    <h1 class="text-2xl font-bold mb-1">Audible API Tester</h1>
+    <p class="text-sm text-base-content/60 mb-6">
+        Build and run authenticated Audible API calls against your own account for troubleshooting.
+        Read-only (GET) only - this tool can never mutate your account or trigger a real download.
+    </p>
+
+    {% if not authenticated %}
+    <div class="alert alert-warning mb-6">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>Audible authentication not detected. Calls will fail until you re-authenticate via Settings &rarr; Connected Services.</span>
+    </div>
+    {% endif %}
+
+    <div class="api-grid">
+
+        <div class="card bg-base-200 border border-base-content/10">
+            <div class="card-body gap-4">
+                <h2 class="card-title text-base">Build the call</h2>
+
+                <div>
+                    <label class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-1 block">Call type</label>
+                    <select id="callType" class="select select-bordered select-sm w-full bg-base-100">
+                        {% for key, preset in call_types.items() %}
+                        <option value="{{ key }}"
+                                data-path="{{ preset.path }}"
+                                data-needs-asin="{{ 'true' if preset.needs_asin else 'false' }}"
+                                data-groups="{{ preset.default_response_groups }}">{{ preset.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-1 block">Path</label>
+                    <input type="text" id="callPath" class="input input-bordered input-sm w-full bg-base-100 font-mono"
+                           placeholder="1.0/catalog/products/{asin}">
+                    <div class="text-xs text-base-content/40 mt-1">Editable only when "Custom path" is selected. <code>{asin}</code> is substituted automatically.</div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-1 block">Title (searches your library)</label>
+                    <div class="api-dropdown-wrap">
+                        <input type="text" id="titleSearch" class="input input-bordered input-sm w-full bg-base-100"
+                               placeholder="Search by title or author…" autocomplete="off">
+                        <div id="titleResults" class="api-dropdown hidden"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-1 block">ASIN</label>
+                    <input type="text" id="callAsin" class="input input-bordered input-sm w-full bg-base-100 font-mono"
+                           placeholder="B0XXXXXXXX">
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-1 block">Response groups</label>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-1 max-h-40 overflow-y-auto border border-base-content/10 rounded-lg p-2 bg-base-100">
+                        {% for group in known_response_groups %}
+                        <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <input type="checkbox" class="checkbox checkbox-xs response-group-cb" value="{{ group }}">
+                            <span class="truncate">{{ group }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <input type="text" id="extraGroups" class="input input-bordered input-sm w-full bg-base-100 mt-2"
+                           placeholder="extra, comma, separated, groups">
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-1 block">Extra query params (one per line, key=value)</label>
+                    <textarea id="extraParams" class="textarea textarea-bordered textarea-sm w-full bg-base-100 font-mono" rows="3"
+                              placeholder="image_sizes=500
+num_results=50
+page=1"></textarea>
+                </div>
+
+                <button id="sendBtn" type="button" class="btn btn-primary btn-sm">
+                    <i class="fas fa-paper-plane"></i> Send Request
+                </button>
+            </div>
+        </div>
+
+        <div class="card bg-base-200 border border-base-content/10">
+            <div class="card-body gap-3">
+                <div class="flex items-center justify-between gap-2">
+                    <h2 class="card-title text-base">Response</h2>
+                    <div class="flex items-center gap-2">
+                        <span id="resultStatus" class="api-status-pill hidden"></span>
+                        <button id="copyBtn" type="button" class="btn btn-ghost btn-xs hidden">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>
+                <div id="resultMeta" class="api-result-meta"></div>
+                <pre id="resultBody" class="api-result-pre">Send a request to see the response here.</pre>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/audible_api_tester.js') }}"></script>
+{% endblock %}

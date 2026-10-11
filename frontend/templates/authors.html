@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}Authors - AuralArchive{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/authors.css') }}?v=7">
+{% endblock %}
+
+{% block content %}
+<div class="w-full" id="authorsPage">
+    {% if error %}
+    <div class="alert alert-error shadow-lg mb-6">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <div class="authors-toolbar" role="group" aria-label="Author filters">
+        <div class="s-field grow">
+            <label for="searchInput" class="s-label">Search Authors</label>
+            <input id="searchInput" type="text" placeholder="Search authors by name..." class="input input-sm input-bordered w-full">
+        </div>
+        <div class="s-field">
+            <label for="sortFilter" class="s-label">Sort By</label>
+            <select id="sortFilter" class="select select-sm select-bordered w-full">
+                <option value="name">Name</option>
+                <option value="books">Book Count</option>
+                <option value="hours">Total Hours</option>
+                <option value="completion">Completion %</option>
+            </select>
+        </div>
+        <div class="s-field view-seg">
+            <span class="s-label">View</span>
+            <div class="join" role="group" aria-label="Author view options">
+                <button class="join-item btn btn-sm btn-soft" id="tableViewBtn" onclick="setView('table')" type="button" aria-label="Table view">
+                    <i class="fas fa-list"></i>
+                </button>
+                <button class="join-item btn btn-sm btn-soft btn-primary" id="compactViewBtn" onclick="setView('compact')" type="button" aria-label="Compact view">
+                    <i class="fas fa-th-list"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {% include 'partials/loading-spinner.html' %}
+
+    {% set es_id = 'errorState' %}
+    {% set es_hidden = true %}
+    {% set es_icon = 'fa-exclamation-triangle' %}
+    {% set es_icon_class = 'text-error' %}
+    {% set es_title = 'Error Loading Authors' %}
+    {% set es_message_id = 'errorMessage' %}
+    {% set es_retry_fn = 'loadAuthors()' %}
+    {% include 'partials/empty-state.html' %}
+
+    {% set es_id = 'emptyState' %}
+    {% set es_hidden = true %}
+    {% set es_icon = 'fa-user-pen' %}
+    {% set es_title = 'No authors found' %}
+    {% set es_body = 'Add books to your library to build author analytics' %}
+    {% set es_action_href = '/library' %}
+    {% set es_action_label = '<i class="fas fa-books"></i> Go to Library' %}
+    {% set es_message_id = undefined %}
+    {% set es_retry_fn = undefined %}
+    {% include 'partials/empty-state.html' %}
+
+    <div id="authorsContent" class="hidden">
+        <div id="tableView" class="p-6 hidden">
+            <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                    <thead>
+                        <tr>
+                            <th>Author</th>
+                            <th class="text-center">Books</th>
+                            <th class="text-center">Series</th>
+                            <th class="text-center">Hours</th>
+                            <th class="text-center">Completion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div id="compactView" class="p-6">
+            <div class="space-y-2" id="compactList"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/authors.js') }}" defer></script>
+{% endblock %}

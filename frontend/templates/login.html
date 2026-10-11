@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - AuralArchive</title>
+    <script>
+        (function() {
+            try {
+                var savedTheme = localStorage.getItem('theme');
+                // Themes that no longer exist fall back to the default.
+                if (savedTheme === 'blueberry' || savedTheme === 'oceanbreeze') {
+                    savedTheme = 'dark';
+                    localStorage.setItem('theme', savedTheme);
+                }
+                if (savedTheme) {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                }
+            } catch (err) {
+                console.warn('Theme preload failed:', err);
+            }
+        })();
+    </script>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}?v=7">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/font-awesome/css/all.min.css') }}">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/outfit.css') }}">
+    
+    <style>
+        body { font-family: 'Outfit', system-ui, -apple-system, sans-serif; }
+        .logo-gradient {
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 bg-base-200">
+    <div class="w-full max-w-sm">
+        <div class="card bg-base-100 shadow-2xl">
+            <div class="card-body gap-5">
+
+                <div class="text-center mb-1">
+                    <img src="{{ url_for('static', filename='images/auralarchive_logo.png') }}" alt="" class="mx-auto mb-3 rounded-xl" style="width:7.5rem;height:7.5rem;">
+                    <h1 class="text-5xl font-bold tracking-tight logo-gradient">AuralArchive</h1>
+                    <p class="text-sm text-base-content/60 mt-1">Sign in to continue</p>
+                </div>
+
+                {% if error %}
+                <div role="alert" class="alert alert-error">
+                    <i class="fas fa-circle-xmark shrink-0"></i>
+                    <span>{{ error }}</span>
+                </div>
+                {% endif %}
+
+                {% if success %}
+                <div role="alert" class="alert alert-success">
+                    <i class="fas fa-circle-check shrink-0"></i>
+                    <span>{{ success }}</span>
+                </div>
+                {% endif %}
+
+                <form method="POST" action="{{ url_for('auth.login') }}" class="space-y-4">
+                    <fieldset class="fieldset gap-1">
+                        <legend class="fieldset-legend text-xs uppercase tracking-wide">Username</legend>
+                        <label class="input input-bordered w-full">
+                            <i class="fas fa-user opacity-50 text-sm"></i>
+                            <input type="text" name="username" placeholder="Enter username"
+                                   required autocomplete="username" autofocus
+                                   value="{{ username or '' }}" />
+                        </label>
+                    </fieldset>
+
+                    <fieldset class="fieldset gap-1">
+                        <legend class="fieldset-legend text-xs uppercase tracking-wide">Password</legend>
+                        <label class="input input-bordered w-full">
+                            <i class="fas fa-lock opacity-50 text-sm"></i>
+                            <input type="password" name="password" placeholder="Enter password"
+                                   required autocomplete="current-password" />
+                        </label>
+                    </fieldset>
+
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="remember" class="checkbox checkbox-sm checkbox-primary"
+                               id="remember" {% if remember %}checked{% endif %} />
+                        <span class="label-text">Remember me for 30 days</span>
+                    </label>
+
+                    <button type="submit" class="btn btn-primary w-full">
+                        <i class="fas fa-right-to-bracket"></i>
+                        Sign In
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

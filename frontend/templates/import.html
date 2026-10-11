@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+
+{% block title %}Import - AuralArchive{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/import.css') }}?v=7">
+{% endblock %}
+
+{% block content %}
+<div class="import-shell">
+
+    <section id="review" class="import-review{{ '' if import_review_count else ' hidden' }}" aria-labelledby="importReviewTitle">
+        <div class="import-review-head">
+            <div class="min-w-0">
+                <h2 id="importReviewTitle"><i class="fas fa-bell" aria-hidden="true"></i> Library folders need review</h2>
+                <p>These couldn't be matched automatically.</p>
+            </div>
+            <a href="{{ url_for('library_import_page.library_import_dashboard') }}?scan=1" class="btn btn-outline btn-sm flex-shrink-0">
+                <i class="fas fa-folder-tree text-xs" aria-hidden="true"></i> Review in Library Import
+            </a>
+        </div>
+        <ul id="importReviewList" class="import-review-list"></ul>
+    </section>
+
+    <div class="import-cols">
+
+        <div class="import-col-left border-r border-base-content/10" role="region" aria-label="Browse staging files">
+
+            <div class="p-5 space-y-4">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0">
+                        <h2 class="text-sm font-semibold">Staging folder</h2>
+                        <p class="text-xs text-base-content/50 mt-1">Pick files to stage, then import them.</p>
+                    </div>
+                    <div class="flex gap-1.5 flex-shrink-0">
+                        <button class="btn btn-ghost btn-xs" id="stagingRootBtn" type="button">
+                            <i class="fas fa-home text-xs"></i> Root
+                        </button>
+                        <button class="btn btn-ghost btn-xs" id="stagingRefreshBtn" type="button">
+                            <i class="fas fa-rotate text-xs"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div class="import-alt rounded-lg border border-dashed border-base-content/15 bg-base-200/40">
+                    <div class="import-alt-row">
+                        <span title="Copies files from this computer into the staging folder">Upload from this computer</span>
+                        <input type="file" id="uploadFileInput" class="hidden" multiple accept=".m4b,.mp3,.m4a,.aac,.flac,.ogg,.wav" />
+                        <button class="btn btn-outline btn-xs" id="uploadFileBtn" type="button">
+                            <i class="fas fa-upload text-xs"></i> Choose Files
+                        </button>
+                    </div>
+                    <div class="import-alt-row">
+                        <span title="Scans an already-organised folder (one folder per book) and adds it without moving or renaming anything">Already organised elsewhere?</span>
+                        <a href="{{ url_for('library_import_page.library_import_dashboard') }}" class="btn btn-outline btn-xs">
+                            <i class="fas fa-folder-tree text-xs"></i> Library Import
+                        </a>
+                    </div>
+                </div>
+                <div id="uploadStatus" class="text-xs text-info hidden" role="status">
+                    <span class="loading loading-spinner loading-xs mr-1"></span><span id="uploadStatusText">Uploading…</span>
+                </div>
+
+                <div class="import-curdir rounded-lg border border-base-content/10 bg-base-200 overflow-hidden">
+                    <div class="import-curdir-head border-b border-base-content/10">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-base-content/40">Current Directory</span>
+                    </div>
+                    <div id="stagingBreadcrumbs" class="import-curdir-crumbs"></div>
+                    <div class="import-curdir-root">
+                        Root: <code id="stagingRootPath">{{ import_directory }}</code>
+                    </div>
+                </div>
+
+                <div id="stagingStatus" class="text-xs text-info hidden" role="status">
+                    <span class="loading loading-spinner loading-xs mr-1"></span>Loading staging directory…
+                </div>
+
+                <div class="staging-table-wrap overflow-x-auto rounded-lg border border-base-content/10 bg-base-200">
+                    <table class="table table-sm w-full" id="stagingTable">
+                        <colgroup>
+                            <col />
+                            <col style="width: 6rem" />
+                            <col style="width: 7rem" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th class="text-xs">Name</th>
+                                <th class="text-xs">Size</th>
+                                <th class="text-xs text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stagingTableBody">
+                            <tr>
+                                <td colspan="3" class="text-center text-sm py-6 text-base-content/40">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="stagingEmptyState" class="hidden aa-empty-state">
+                    Nothing is in this directory yet. Drop audiobook files under
+                    <code>{{ import_directory }}</code> on the server and refresh.
+                </div>
+            </div>
+
+            <div class="divider mx-5 my-0 opacity-50"></div>
+
+            <div class="p-5 space-y-3 flex-1">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-semibold">Selected entries</span>
+                    <button class="btn btn-ghost btn-xs text-base-content/50" id="clearPathsBtn" type="button">
+                        <i class="fas fa-eraser text-xs"></i> Clear
+                    </button>
+                </div>
+                <div id="selectedFilesContainer"
+                     class="min-h-[3rem] rounded-lg border border-base-content/10 bg-base-200 p-3 flex flex-col gap-1.5">
+                    <span class="text-sm text-base-content/40">No sources selected yet.</span>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="import-col-right" role="region" aria-label="Staged import cards">
+
+            <div class="flex-shrink-0 px-6 py-4 border-b border-base-content/10 space-y-3">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 class="text-sm font-semibold">Staged Cards</h2>
+                        <p class="text-xs text-base-content/50 mt-0.5">Check matches and destinations before importing.</p>
+                        <div class="text-xs text-base-content/35 mt-1 font-mono opacity-0 transition-opacity" id="batchMetaInfo"></div>
+                    </div>
+                    {% if libraries|length > 1 %}
+                    <label class="flex items-center gap-2 text-xs text-base-content/60 flex-shrink-0">
+                        <span>Library</span>
+                        <select id="importLibrary" class="select select-bordered select-xs">
+                            {% for lib in libraries %}
+                            <option value="{{ lib.id }}" {% if lib.is_default %}selected{% endif %}>{{ lib.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    {% endif %}
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button class="btn btn-primary btn-sm" id="previewBtn" type="button">
+                        <i class="fas fa-layer-group text-xs"></i>
+                        Stage Files
+                    </button>
+                    <button class="btn btn-accent btn-sm" id="importBtn" type="button" disabled
+                            title="Stage files first, then select ready cards to enable importing">
+                        <i class="fas fa-file-import text-xs"></i>
+                        Import Selected Cards
+                    </button>
+                    <label class="flex items-center gap-2 text-xs text-base-content/50 cursor-pointer select-none ml-1"
+                           title="Available once staged cards are ready to import">
+                        <input type="checkbox" class="checkbox checkbox-xs" id="cardSelectAll" disabled />
+                        <span>Select all ready cards</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="import-cards-area p-5">
+                <div id="cardEmptyState"
+                     class="rounded-lg border border-dashed border-base-content/15 bg-base-200/40 px-6 py-10 text-center text-sm text-base-content/40">
+                    Nothing staged yet. Pick files on the left, then click
+                    <span class="font-semibold text-base-content/60">Stage Files</span>.
+                </div>
+                <div id="cardGrid" class="flex flex-col gap-3"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div id="previewSummary" class="import-statusbar" role="status" aria-live="polite" aria-label="Import summary">
+        <div>
+            <div class="flex items-baseline gap-1">
+                <span class="import-stat-val" id="summaryTotal">0</span>
+                <span class="import-stat-key">Total</span>
+            </div>
+            <span class="import-stat-desc">Files evaluated</span>
+        </div>
+        <div>
+            <div class="flex items-baseline gap-1">
+                <span class="import-stat-val text-success" id="summaryReady">0</span>
+                <span class="import-stat-key">Ready</span>
+            </div>
+            <span class="import-stat-desc">Valid and importable</span>
+        </div>
+        <div>
+            <div class="flex items-baseline gap-1">
+                <span class="import-stat-val" id="summaryPending">0</span>
+                <span class="import-stat-key">Pending</span>
+            </div>
+            <span class="import-stat-desc">Awaiting metadata</span>
+        </div>
+        <div>
+            <div class="flex items-baseline gap-1">
+                <span class="import-stat-val text-warning" id="summaryMissing">0</span>
+                <span class="import-stat-key">Missing</span>
+            </div>
+            <span class="import-stat-desc">Paths not reachable</span>
+        </div>
+        <div>
+            <div class="flex items-baseline gap-1">
+                <span class="import-stat-val text-error" id="summaryInvalid">0</span>
+                <span class="import-stat-key">Invalid</span>
+            </div>
+            <span class="import-stat-desc">Format errors</span>
+        </div>
+        <div>
+            <div class="flex items-baseline gap-1">
+                <span class="import-stat-val text-error" id="summaryError">0</span>
+                <span class="import-stat-key">Errors</span>
+            </div>
+            <span class="import-stat-desc">Failed or blocked</span>
+        </div>
+        <div>
+            <div class="flex items-baseline gap-1">
+                <span class="import-stat-val text-info" id="summaryImported">0</span>
+                <span class="import-stat-key">Imported</span>
+            </div>
+            <span class="import-stat-desc">Already completed</span>
+        </div>
+    </div>
+
+</div>
+
+<div id="importResultCard" class="hidden border-t border-base-content/10 px-6 py-5 bg-base-100">
+    <div class="max-w-5xl mx-auto space-y-4">
+        <div class="flex items-center justify-between">
+            <h2 class="font-semibold">Import Results</h2>
+            <span class="text-xs text-base-content/50">Latest import status</span>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-3">
+            <div class="stat bg-base-200 border border-base-content/10 rounded-xl">
+                <div class="stat-title">Successful</div>
+                <div class="stat-value text-lg text-success" id="importSuccess">0</div>
+            </div>
+            <div class="stat bg-base-200 border border-base-content/10 rounded-xl">
+                <div class="stat-title">Failed</div>
+                <div class="stat-value text-lg text-error" id="importFailed">0</div>
+            </div>
+            <div class="stat bg-base-200 border border-base-content/10 rounded-xl">
+                <div class="stat-title">Total</div>
+                <div class="stat-value text-lg" id="importTotal">0</div>
+            </div>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-base-content/10">
+            <table class="table table-sm text-sm">
+                <thead>
+                    <tr>
+                        <th>Path</th>
+                        <th>Status</th>
+                        <th>Message</th>
+                        <th>Destination</th>
+                    </tr>
+                </thead>
+                <tbody id="importResultsBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<dialog id="metadataSearchModal" class="modal">
+    <div class="modal-box max-w-4xl">
+        <form method="dialog" class="absolute right-4 top-4">
+            <button class="btn btn-ghost btn-sm" id="metadataSearchClose" type="submit">
+                <i class="fas fa-times"></i>
+            </button>
+        </form>
+        <div class="space-y-4">
+            <div>
+                <h3 class="font-semibold text-lg">Remap Metadata</h3>
+                <p class="text-sm text-base-content/60" id="metadataSearchCardTitle">
+                    Enter a title, author, or ASIN to locate the correct match for this card.
+                </p>
+            </div>
+            <form id="metadataSearchForm" class="grid gap-4 md:grid-cols-3">
+                <label class="form-control w-full">
+                    <span class="label-text text-xs uppercase tracking-wide text-base-content/50">Title Keywords</span>
+                    <input type="text" class="input input-sm input-bordered" id="metadataSearchQuery" placeholder="Audiobook Title" />
+                </label>
+                <label class="form-control w-full">
+                    <span class="label-text text-xs uppercase tracking-wide text-base-content/50">Author</span>
+                    <input type="text" class="input input-sm input-bordered" id="metadataSearchAuthor" placeholder="Author" />
+                </label>
+                <label class="form-control w-full">
+                    <span class="label-text text-xs uppercase tracking-wide text-base-content/50">ASIN (optional)</span>
+                    <input type="text" class="input input-sm input-bordered" id="metadataSearchAsin" placeholder="B00XXXXXXX" />
+                </label>
+                <div class="md:col-span-3 flex flex-wrap gap-3">
+                    <button class="btn btn-primary btn-sm" type="submit" id="metadataSearchSubmit">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                    <button class="btn btn-ghost btn-sm" type="button" id="metadataApplyAsinBtn">
+                        <i class="fas fa-bolt"></i> Force refresh with ASIN
+                    </button>
+                </div>
+            </form>
+            <div id="metadataSearchStatus" class="text-sm text-base-content/50">Enter a query to search for matches.</div>
+            <div id="metadataSearchResults" class="grid gap-3"></div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button type="submit">close</button>
+    </form>
+</dialog>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+window.importPageData = {
+    batchPreviewEndpoint: "{{ url_for('import_api.create_batch_preview') }}",
+    batchGetEndpointTemplate: "{{ url_for('import_api.get_batch_preview', batch_id='__batch__') }}",
+    batchDeleteEndpointTemplate: "{{ url_for('import_api.delete_batch_preview', batch_id='__batch__') }}",
+    batchImportEndpointTemplate: "{{ url_for('import_api.import_batch_cards', batch_id='__batch__') }}",
+    batchCardRefreshEndpointTemplate: "{{ url_for('import_api.refresh_batch_card', batch_id='__batch__', card_id='__card__') }}",
+    metadataSearchEndpoint: "{{ url_for('import_api.search_import_metadata') }}",
+    defaultLibraryPath: "{{ default_library_path }}",
+    defaultTemplate: "{{ default_template }}",
+    importDirectory: "{{ import_directory }}",
+    stagingListEndpoint: "{{ url_for('import_api.list_import_staging_directory') }}",
+    stagingScanEndpoint: "{{ url_for('import_api.scan_import_staging_directory') }}",
+    uploadEndpoint: "{{ url_for('import_api.upload_import_files') }}"
+};
+</script>
+<script src="{{ url_for('static', filename='js/import.js') }}?v=5" defer></script>
+<script src="{{ url_for('static', filename='js/import_review.js') }}?v=2" defer></script>
+{% endblock %}

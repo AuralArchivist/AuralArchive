@@ -1,0 +1,56 @@
+{# Reusable empty / error state partial.
+   Usage - empty state:
+     {% set es_icon = 'fa-book' %}
+     {% set es_title = 'No books found' %}
+     {% set es_body = 'Add some books to get started.' %}
+     {% include 'partials/empty-state.html' %}
+
+   Usage - error state (shows error icon + optional retry button):
+     {% set es_id = 'errorState' %}
+     {% set es_icon = 'fa-exclamation-triangle' %}
+     {% set es_icon_class = 'text-error' %}
+     {% set es_title = 'Error loading authors' %}
+     {% set es_message_id = 'errorMessage' %}
+     {% set es_retry_fn = 'loadAuthors()' %}
+     {% include 'partials/empty-state.html' %}
+
+   Parameters (all optional, set as variables before {% include %}):
+     es_id - id attribute (default: 'emptyState')
+     es_hidden - if truthy, adds 'hidden' (default: false)
+     es_py - Tailwind py-* (default: 'py-24')
+     es_icon - Font Awesome icon class, e.g. 'fa-book' (default: 'fa-inbox')
+     es_icon_class - Extra class on the icon (default: 'text-base-content/20')
+     es_title - Heading text (default: 'Nothing here yet')
+     es_body - Body paragraph text (default: '')
+     es_message_id - If set, renders an empty <p> with this id (for JS to fill)
+     es_retry_fn - If set, renders a 'Try Again' button calling this JS fn
+     es_action_href - If set, renders a CTA link button
+     es_action_label - Label for the CTA link (default: 'Go')
+#}
+{% set _id       = es_id          | default('emptyState') %}
+{% set _hidden   = es_hidden      | default(false) %}
+{% set _py       = es_py          | default('py-24') %}
+{% set _icon     = es_icon        | default('fa-inbox') %}
+{% set _icls     = es_icon_class  | default('text-base-content/20') %}
+{% set _title    = es_title       | default('Nothing here yet') %}
+{% set _body     = es_body        | default('') %}
+<div id="{{ _id }}" class="{{ 'hidden ' if _hidden else '' }}text-center {{ _py }}">
+    <i class="fas {{ _icon }} text-6xl {{ _icls }} mb-4"></i>
+    <h3 class="text-2xl font-bold mb-2">{{ _title }}</h3>
+    {% if _body %}
+    <p class="text-base-content/60 mb-6">{{ _body }}</p>
+    {% endif %}
+    {% if es_message_id is defined %}
+    <p class="text-base-content/60 mb-6" id="{{ es_message_id }}"></p>
+    {% endif %}
+    {% if es_retry_fn is defined %}
+    <button class="btn btn-soft btn-primary" onclick="{{ es_retry_fn }}">
+        <i class="fas fa-rotate-right"></i> Try Again
+    </button>
+    {% endif %}
+    {% if es_action_href is defined %}
+    <a href="{{ es_action_href }}" class="btn btn-soft btn-primary">
+        {{ es_action_label | default('Go') }}
+    </a>
+    {% endif %}
+</div>

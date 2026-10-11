@@ -1,0 +1,97 @@
+{% set asin = (book.asin or book.ASIN or book.id or '') %}
+{% set author = book.author or 'Unknown Author' %}
+{% set title = book.title or 'Unknown Title' %}
+{% set cover = book.cover_image %}
+{% set library_status = (book.library_status or book.status or ('in_library' if book.in_library else 'not_in_library')) | lower %}
+{% set rating = book.rating if book.rating and book.rating != 'N/A' %}
+{% set rating_count = book.num_ratings or book.rating_count %}
+{% set narrator = book.narrator %}
+{% set runtime = book.runtime %}
+{% set release_label = book.release_date %}
+{% set series = book.series %}
+{% set sequence = book.sequence %}
+{% set download_available = book.download_available %}
+{% set has_meta = (rating and rating != 'N/A') or runtime or narrator or release_label %}
+
+<article class="search-card search-result-item {% if library_status == 'in_library' %}is-in-library{% elif library_status == 'wanted' %}is-wanted{% endif %}"
+         tabindex="0"
+         data-asin="{{ asin }}"
+         data-library-status="{{ library_status }}"
+         data-downloadable="{{ download_available|default(false)|string|lower }}"
+         data-in-library="{{ book.in_library|default(false)|string|lower }}">
+    <div class="search-book-cover search-book-cover--square">
+        {% if cover %}
+            <img src="{{ cover }}" alt="{{ title }}" loading="lazy">
+        {% else %}
+            <div class="search-book-placeholder">
+                <i class="fas fa-book"></i>
+                <span>AUDIO<br>BOOK</span>
+            </div>
+        {% endif %}
+    </div>
+    <div class="search-book-info">
+        <h3 class="search-book-title">{{ title }}</h3>
+        <p class="search-book-author">{{ author }}</p>
+        {% set meta_items = [] %}
+        {% if series and series != 'N/A' %}
+            {% set series_sub = ('Book ' ~ sequence) if sequence else None %}
+            {% set _ = meta_items.append({
+                'icon': 'bookmark',
+                'label': series,
+                'sub': series_sub
+            }) %}
+        {% endif %}
+        {% if runtime %}
+            {% set _ = meta_items.append({'icon': 'clock', 'label': runtime}) %}
+        {% endif %}
+        {% if rating and rating != 'N/A' %}
+            {% set rating_sub = (rating_count ~ ' reviews') if rating_count else None %}
+            {% set _ = meta_items.append({'icon': 'star', 'label': rating, 'sub': rating_sub}) %}
+        {% endif %}
+        {% if release_label %}
+            {% set _ = meta_items.append({'icon': 'calendar', 'label': release_label}) %}
+        {% endif %}
+        {% if narrator %}
+            {% set _ = meta_items.append({'icon': 'microphone', 'label': narrator}) %}
+        {% endif %}
+        {% if meta_items %}
+        <div class="search-book-meta">
+            {% for item in meta_items %}
+            <div class="meta-row">
+                <i class="fas fa-{{ item.icon }}" aria-hidden="true"></i>
+                <div class="meta-row-text">
+                    <span>{{ item.label }}</span>
+                    {% if item.sub %}<small>{{ item.sub }}</small>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    <div class="search-book-actions">
+        <button class="search-action-btn details-btn" data-action="view-details" data-asin="{{ asin }}">
+            <i class="fas fa-info-circle"></i>
+            Details
+        </button>
+        <button class="search-action-btn details-btn" data-action="find-similar" data-author="{{ author }}">
+            <i class="fas fa-search"></i>
+            Similar
+        </button>
+        {% if library_status == 'in_library' %}
+            <button class="search-action-btn in-library-btn" disabled>
+                <i class="fas fa-check"></i>
+                In Library
+            </button>
+        {% elif library_status == 'wanted' %}
+            <button class="search-action-btn in-library-btn" disabled>
+                <i class="fas fa-star"></i>
+                Wanted
+            </button>
+        {% else %}
+            <button class="search-action-btn add-btn" data-action="add-to-library" data-asin="{{ asin }}">
+                <i class="fas fa-plus"></i>
+                Add to Library
+            </button>
+        {% endif %}
+    </div>
+</article>

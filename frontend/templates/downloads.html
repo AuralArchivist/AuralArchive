@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/downloads.css') }}?v=4">
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6" id="downloadsRoot">
+
+    <div class="dl-stats" role="region" aria-label="Download statistics">
+        <div class="dl-stat">
+            <div class="k">Active Queue</div>
+            <div class="v" id="stat-active">{{ service_status.get('queue_statistics', {}).get('total_active', 0) }}</div>
+            <div class="d">Items currently in-flight</div>
+        </div>
+        <div class="dl-stat c-info">
+            <div class="k">Downloading</div>
+            <div class="v" id="stat-downloading">{{ service_status.get('queue_statistics', {}).get('DOWNLOADING', 0) }}</div>
+            <div class="d">Client transfers in progress</div>
+        </div>
+        <div class="dl-stat c-wa">
+            <div class="k">Converting</div>
+            <div class="v" id="stat-converting">{{ service_status.get('queue_statistics', {}).get('CONVERTING', 0) }}</div>
+            <div class="d">Audible post-processing</div>
+        </div>
+        <div class="dl-stat c-seed">
+            <div class="k">Seeding</div>
+            <div class="v" id="stat-seeding">{{ service_status.get('queue_statistics', {}).get('SEEDING', 0) }}</div>
+            <div class="d">Torrents currently seeding</div>
+        </div>
+    </div>
+
+    <div class="dl-grid">
+        <div>
+            <div class="dl-sec-head flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between mb-4">
+                <div>
+                    <p class="t">Download Activity</p>
+                    <p class="s">Monitor active transfers and seeding jobs supervised by the coordinator.</p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap justify-end">
+                    <div id="queueTabs" class="tabs tabs-border hidden" role="tablist" aria-label="Queue views">
+                        <button id="tabDownloads" type="button" class="tab tab-active" data-tab="downloads" role="tab" aria-selected="true" aria-controls="downloadsPanel">Downloads</button>
+                        <button id="tabSeeding" type="button" class="tab" data-tab="seeding" role="tab" aria-selected="false" aria-controls="seedingPanel">Seeding</button>
+                    </div>
+                    <button id="clearQueue" class="btn btn-outline btn-error btn-xs" type="button">
+                        <i class="fas fa-trash-can"></i> Clear Queue
+                    </button>
+                    <button id="refreshPipeline" class="btn btn-ghost btn-xs" type="button">
+                        <i class="fas fa-rotate"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div id="downloadsPanel" role="tabpanel" aria-label="Active downloads">
+                <div id="pipelineContainer"></div>
+                <div id="pipelineEmpty" class="hidden">
+                    <div class="alert">
+                        <span>No active downloads yet. Start a search or manual download to populate the queue.</span>
+                    </div>
+                </div>
+            </div>
+            <div id="seedingPanel" class="hidden" role="tabpanel" aria-label="Seeding torrents">
+                <div id="seedingContainer"></div>
+                <div id="seedingEmpty" class="hidden">
+                    <div class="alert">
+                        <span>No torrents are currently seeding. Completed items will appear here while finishing their ratios/time.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <aside>
+            <div class="dl-side-card">
+                <div class="flex items-start justify-between gap-3 px-4 py-3.5 border-b border-base-content/10">
+                    <div>
+                        <p class="t" style="font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--aa-muted);margin:0;">Recently Imported</p>
+                        <p style="font-size:11px;color:var(--aa-muted2);margin-top:3px;">Latest completions from the pipeline.</p>
+                    </div>
+                    <button id="refreshHistory" class="btn btn-ghost btn-xs" type="button" aria-label="Refresh recently imported list">
+                        <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="p-2">
+                    <div id="historyContainer"></div>
+                    <div id="historyEmpty" class="hidden text-xs text-base-content/60 px-2 py-3">
+                        No completed downloads yet.
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<script id="initialQueueData" type="application/json">{{ pipeline_items | tojson }}</script>
+<script id="initialStatusData" type="application/json">{{ service_status | tojson }}</script>
+<script id="initialHistoryData" type="application/json">{{ completed_items | tojson }}</script>
+<script src="{{ url_for('static', filename='js/downloads.js') }}?v=8" defer></script>
+{% endblock %}

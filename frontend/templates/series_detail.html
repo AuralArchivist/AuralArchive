@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}Series Details - AuralArchive{% endblock %}
+
+{% block extra_css %}
+{# library.css: this page opens the shared #bookModal #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/series.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/library.css') }}?v=3">
+<style>
+    .sd-synopsis-collapsed { display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="w-full series-page" id="seriesDetailPage" data-series-asin="{{ series_asin }}">
+
+    <div id="sdLoadingState" class="flex justify-center items-center py-32">
+        <span class="loading loading-spinner loading-lg"></span>
+    </div>
+
+    <div id="sdErrorState" class="hidden text-center py-32 px-6">
+        <i class="fas fa-exclamation-triangle text-6xl text-error mb-6"></i>
+        <h3 class="text-2xl font-bold mb-2">Series Not Found</h3>
+        <p class="text-base-content/60 mb-6" id="sdErrorMessage">Unable to load series details.</p>
+        <a href="/series" class="btn btn-soft btn-primary">
+            <i class="fas fa-arrow-left mr-1"></i> Back to Series
+        </a>
+    </div>
+
+    <div id="sdContent" class="hidden">
+
+        <div class="sd-hero">
+
+            <div id="sdCoverWrap" class="sd-cover-wrap hidden">
+                <img id="sdCover" src="" alt="Series Cover">
+            </div>
+
+            <div class="sd-id">
+                <div class="sd-crumb">
+                    <a href="/series"><i class="fas fa-layer-group"></i> Series</a><span class="sep">/</span><span id="sdBreadcrumb" style="color:var(--bc);">—</span>
+                </div>
+                <div id="sdGenreTags"></div>
+                <h1 id="sdTitle">—</h1>
+                <p id="sdAuthor"></p>
+                <div id="sdStats"></div>
+
+                <div class="sd-acts">
+                    <button id="sdBtnRefresh" class="btn btn-sm btn-outline gap-2" onclick="refreshSeriesDetail()">
+                        <i class="fas fa-rotate"></i> Refresh Metadata
+                    </button>
+                    <button id="sdBtnImport" class="btn btn-sm btn-primary gap-2 hidden" onclick="importFullSeries()">
+                        <i class="fas fa-cloud-download-alt"></i> Import Series
+                    </button>
+                    <div class="dropdown dropdown-end">
+                        <button tabindex="0" class="btn btn-sm btn-outline btn-circle">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-200 shadow w-44 mt-1 z-50 border border-base-300" style="border-radius:0.25rem;">
+                            <li><a onclick="window.location.href='/series'"><i class="fas fa-layer-group mr-2"></i>All Series</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sdDescWrap" class="sd-summary hidden">
+                <div class="s-h">Publisher's Summary</div>
+                <div id="sdDescText"></div>
+                <button id="sdDescToggle" onclick="toggleSeriesDesc()"
+                        class="btn btn-ghost btn-xs hidden" style="padding-left:0;margin-top:6px;">Show more</button>
+            </div>
+
+        </div>
+
+        <div class="sd-progress">
+            <span class="lbl">Collection</span>
+            <progress id="sdProgressBar" class="progress progress-primary" value="0" max="100"></progress>
+            <span id="sdProgressLabel" style="font-size:15px;font-weight:700;">0%</span>
+            <span id="sdProgressDetail" class="text-base-content/40" style="font-size:12px;"></span>
+        </div>
+
+        <div id="sdShowHiddenWrap" class="hidden flex justify-end mb-2">
+            <label class="flex items-center gap-2 text-sm text-base-content/60 cursor-pointer select-none">
+                <input type="checkbox" id="sdShowHiddenToggle" class="checkbox checkbox-sm" onchange="sdToggleShowHidden(this.checked)">
+                <span id="sdShowHiddenLabel">Show hidden titles</span>
+            </label>
+        </div>
+        <div id="sdBookList"></div>
+
+    </div>
+
+</div>
+
+<dialog id="bookModal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box max-w-6xl w-full p-0 overflow-hidden flex flex-col" style="height:min(92vh,820px);">
+        <div id="modalContent" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/library.js?v=11"></script>
+<script src="/static/js/series_detail.js?v=4"></script>
+{% endblock %}

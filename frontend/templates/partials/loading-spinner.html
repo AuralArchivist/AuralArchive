@@ -1,0 +1,20 @@
+{# Reusable loading spinner partial.
+   Usage:
+     {% include 'partials/loading-spinner.html' %}
+   With custom id / class:
+     {% set spinner_id = 'myLoadingState' %}
+     {% set spinner_hidden = true %}
+     {% include 'partials/loading-spinner.html' %}
+   Parameters (all optional, set as variables before {% include %}):
+     spinner_id - id attribute (default: 'loadingState')
+     spinner_size - 'sm' | 'md' | 'lg' | 'xl' (default: 'lg')
+     spinner_py - Tailwind py-* class (default: 'py-24')
+     spinner_hidden - if truthy, adds 'hidden' class (default: false)
+#}
+{% set _id    = spinner_id     | default('loadingState') %}
+{% set _size  = spinner_size   | default('lg') %}
+{% set _py    = spinner_py     | default('py-24') %}
+{% set _hide  = spinner_hidden | default(false) %}
+<div id="{{ _id }}" class="flex justify-center items-center {{ _py }}{{ ' hidden' if _hide else '' }}">
+    <span class="loading loading-spinner loading-{{ _size }}"></span>
+</div>

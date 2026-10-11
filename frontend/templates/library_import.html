@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}Library Import - AuralArchive{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/library_import.css') }}?v=2">
+{% endblock %}
+
+{% block content %}
+<div class="libimport-shell">
+
+    <div class="p-5 border-b border-base-content/10 space-y-3" id="libimportIntro">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div class="min-w-0">
+                <a href="{{ url_for('import_page.import_dashboard') }}" class="inline-flex items-center gap-1.5 text-xs text-base-content/50 hover:text-base-content mb-2">
+                    <i class="fas fa-arrow-left text-[10px]" aria-hidden="true"></i> Import
+                </a>
+                <h2 class="text-sm font-semibold">Import Existing Library</h2>
+                <p class="text-xs text-base-content/50 mt-1 leading-relaxed max-w-2xl">
+                    Scan an already-organized library folder - one folder per book - and catalog what's found
+                    <span class="font-semibold text-base-content/70">in place</span>. Files are never moved or renamed.
+                    Only folders not already in your library are shown.
+                </p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                {% if libraries|length > 1 %}
+                <select id="scanLibrary" class="select select-bordered select-sm" aria-label="Library to scan">
+                    {% for lib in libraries %}
+                    <option value="{{ lib.id }}" {% if lib.is_default %}selected{% endif %}>{{ lib.name }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+                <button class="btn btn-primary btn-sm" id="startScanBtn" type="button">
+                    <i class="fas fa-magnifying-glass text-xs"></i>
+                    Scan Library
+                </button>
+            </div>
+        </div>
+        <div id="scanStatus" class="text-xs text-info hidden items-center gap-2 flex" role="status">
+            <span class="loading loading-spinner loading-xs"></span>
+            <span id="scanStatusText">Scanning…</span>
+        </div>
+        <div id="scanError" class="alert alert-error text-sm hidden"></div>
+    </div>
+
+    <div class="libimport-toolbar hidden px-5 py-3 border-b border-base-content/10 flex flex-wrap items-center gap-3"
+         id="libimportToolbar">
+        <label class="flex items-center gap-2 text-xs cursor-pointer select-none">
+            <input type="checkbox" class="checkbox checkbox-xs" id="selectAllCheckbox" />
+            <span>Select all matched</span>
+        </label>
+
+        <div class="divider divider-horizontal mx-0"></div>
+
+        <label class="flex items-center gap-2 text-xs cursor-pointer select-none">
+            <span class="text-base-content/50">Bulk monitor:</span>
+            <input type="checkbox" class="checkbox checkbox-xs" id="bulkMonitorCheckbox" checked />
+        </label>
+        <button class="btn btn-ghost btn-xs" id="applyBulkMonitorBtn" type="button">Apply to selected</button>
+
+        <div class="flex-1"></div>
+
+        <button class="btn btn-ghost btn-sm" id="startProcessingBtn" type="button">
+            <i class="fas fa-play text-xs"></i> Start Processing
+        </button>
+        <button class="btn btn-ghost btn-sm hidden" id="cancelProcessingBtn" type="button">
+            <i class="fas fa-stop text-xs"></i> Cancel Processing
+        </button>
+
+        <div class="dropdown dropdown-top dropdown-end" id="scanErrorsDropdown" style="display:none">
+            <label tabindex="0" class="btn btn-ghost btn-xs text-error">
+                <i class="fas fa-triangle-exclamation"></i> <span id="scanErrorCount">0</span> errors
+            </label>
+            <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-200 rounded-box w-80 text-xs" id="scanErrorsList"></ul>
+        </div>
+
+        <button class="btn btn-accent btn-sm" id="importSelectedBtn" type="button" disabled>
+            <i class="fas fa-file-import text-xs"></i>
+            Import <span id="importSelectedCount">0</span> Books
+        </button>
+    </div>
+
+    <div id="libimportSummary" class="libimport-statusbar hidden">
+        <div><span class="import-stat-val" id="summaryTotal">0</span><span class="import-stat-key">Total</span></div>
+        <div><span class="import-stat-val text-success" id="summaryMatched">0</span><span class="import-stat-key">Matched</span></div>
+        <div><span class="import-stat-val text-warning" id="summaryNeedsReview">0</span><span class="import-stat-key">Needs Review</span></div>
+        <div><span class="import-stat-val text-error" id="summaryUnmatched">0</span><span class="import-stat-key">Unmatched</span></div>
+        <div><span class="import-stat-val text-info" id="summaryImported">0</span><span class="import-stat-key">Imported</span></div>
+    </div>
+
+    <div class="libimport-grid-area p-5">
+        <div id="gridEmptyState" class="aa-empty-state">
+            No scan yet. Set your library path above and click <span class="font-semibold">Scan Library</span>.
+        </div>
+        <div class="libimport-table-view hidden" id="gridTableWrap">
+            <table class="table" id="folderTable">
+                <thead>
+                    <tr>
+                        <th class="w-8"></th>
+                        <th>Folder</th>
+                        <th>Matched Book</th>
+                        <th>Author</th>
+                        <th class="w-20">Monitor</th>
+                        <th class="w-32">Status</th>
+                        <th class="w-16"></th>
+                    </tr>
+                </thead>
+                <tbody id="folderTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<dialog id="matchSearchModal" class="modal">
+    <div class="modal-box max-w-4xl">
+        <form method="dialog" class="absolute right-4 top-4">
+            <button class="btn btn-ghost btn-sm" type="submit"><i class="fas fa-times"></i></button>
+        </form>
+        <div class="space-y-4">
+            <div>
+                <h3 class="font-semibold text-lg">Find the right match</h3>
+                <p class="text-sm text-base-content/60" id="matchSearchFolderName">
+                    Search by title, author, or ASIN to reassign this folder.
+                </p>
+            </div>
+            <form id="matchSearchForm" class="grid gap-4 md:grid-cols-3">
+                <label class="form-control w-full">
+                    <span class="label-text text-xs uppercase tracking-wide text-base-content/50">Title Keywords</span>
+                    <input type="text" class="input input-sm input-bordered" id="matchSearchQuery" placeholder="Audiobook Title" />
+                </label>
+                <label class="form-control w-full">
+                    <span class="label-text text-xs uppercase tracking-wide text-base-content/50">Author</span>
+                    <input type="text" class="input input-sm input-bordered" id="matchSearchAuthor" placeholder="Author" />
+                </label>
+                <label class="form-control w-full">
+                    <span class="label-text text-xs uppercase tracking-wide text-base-content/50">ASIN (optional)</span>
+                    <input type="text" class="input input-sm input-bordered" id="matchSearchAsin" placeholder="B00XXXXXXX" />
+                </label>
+                <div class="md:col-span-3">
+                    <button class="btn btn-primary btn-sm" type="submit">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+            </form>
+            <div id="matchSearchStatus" class="text-sm text-base-content/50">Enter a query to search for matches.</div>
+            <div id="matchSearchResults" class="grid gap-3"></div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button type="submit">close</button>
+    </form>
+</dialog>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+window.libraryImportPageData = {
+    scanStartEndpoint: "{{ url_for('library_import_api.start_scan') }}",
+    scanGetEndpointTemplate: "{{ url_for('library_import_api.get_scan', session_id='__session__') }}",
+    scanCancelEndpointTemplate: "{{ url_for('library_import_api.cancel_scan', session_id='__session__') }}",
+    folderMatchEndpointTemplate: "{{ url_for('library_import_api.assign_folder_match', session_id='__session__', folder_id='__folder__') }}",
+    folderFlagsEndpointTemplate: "{{ url_for('library_import_api.update_folder_flags', session_id='__session__', folder_id='__folder__') }}",
+    metadataSearchEndpoint: "{{ url_for('library_import_api.search_metadata') }}",
+    scanImportEndpointTemplate: "{{ url_for('library_import_api.import_selected', session_id='__session__') }}"
+};
+</script>
+<script src="{{ url_for('static', filename='js/library_import.js') }}?v=3" defer></script>
+{% endblock %}

@@ -1,0 +1,34 @@
+{
+  "name": "auralarchive",
+  "version": "1.0.0",
+  "description": "I would like to say I am a beginner with no experience and I have been teaching myself during this build. This project has taken many, many months. Things will break, things will have bugs. Things will get fixed. This is my first application and it is currently an Alpha build. Please have some patience. Thank you for your interest and please enjoy AuralArchive.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tailwindcss -i tailwind.input.css -o static/css/tailwind.css --minify",
+    "watch": "tailwindcss -i tailwind.input.css -o static/css/tailwind.css --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AuralArchivist/AuralArchive.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/AuralArchivist/AuralArchive/issues"
+  },
+  "homepage": "https://github.com/AuralArchivist/AuralArchive#readme",
+  "dependencies": {
+    "daisyui": "^5.7.44",
+    "tailwindcss": "^4.3.0"
+  },
+  "devDependencies": {
+    "@fortawesome/fontawesome-free": "^6.4.0",
+    "@tailwindcss/cli": "^4.3.0"
+  }
+}
