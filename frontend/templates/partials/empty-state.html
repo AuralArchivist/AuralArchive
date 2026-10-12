@@ -26,6 +26,7 @@
      es_retry_fn - If set, renders a 'Try Again' button calling this JS fn
      es_action_href - If set, renders a CTA link button
      es_action_label - Label for the CTA link (default: 'Go')
+     es_action_icon - Font Awesome icon class shown before the CTA label
 #}
 {% set _id       = es_id          | default('emptyState') %}
 {% set _hidden   = es_hidden      | default(false) %}
@@ -50,7 +51,7 @@
     {% endif %}
     {% if es_action_href is defined %}
     <a href="{{ es_action_href }}" class="btn btn-soft btn-primary">
-        {{ es_action_label | default('Go') }}
+        {% if es_action_icon is defined %}<i class="fas {{ es_action_icon }}"></i> {% endif %}{{ es_action_label | default('Go') }}
     </a>
     {% endif %}
 </div>
