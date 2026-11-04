@@ -2,7 +2,7 @@
 Module Name: template_parser.py
 Author: AuralArchivist
 Created: August 26, 2025
-Last Modified: October 9, 2026
+Last Modified: October 25, 2026
 Description:
     Parses and validates naming templates, handling variable substitution and
     validation for AudioBookShelf-friendly paths.
@@ -26,7 +26,7 @@ class TemplateParser:
     - {author} - Primary author name
     - {title} - Book title
     - {series} - Series name
-    - {series_number} - Book number in series (e.g., "Book 01")
+    - {series_number} - Book number in series (e.g., "1", "1.5")
     - {year} - Publication year
     - {narrator} - Primary narrator name
     - {asin} - Audible ASIN
@@ -151,7 +151,7 @@ class TemplateParser:
             return str(value) if value else ''
         elif variable == 'publisher':
             value = book_data.get('Publisher', book_data.get('publisher'))
-            return str(value) if value else 'Unknown Publisher'
+            return str(value) if value else ''
         elif variable == 'runtime':
             return self._get_runtime(book_data)
         else:
@@ -170,10 +170,12 @@ class TemplateParser:
         
         Returns a numeric string for use in templates (e.g., "1", "1.5").
         """
-        book_number = (book_data.get('book_number') or 
-                      book_data.get('BookNumber'))
-        
-        if not book_number:
+        book_number = (book_data.get('book_number') or
+                      book_data.get('BookNumber') or
+                      book_data.get('Sequence') or
+                      book_data.get('series_number'))
+
+        if not book_number or book_number == 'N/A':
             return ''
         
         try:
