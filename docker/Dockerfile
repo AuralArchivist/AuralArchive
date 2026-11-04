@@ -16,7 +16,9 @@
 FROM node:22-slim AS css-builder
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci --include=dev
+# npm ci needs a lockfile, so fall back to a plain install when the build has none.
+RUN if [ -f package-lock.json ]; then npm ci --include=dev; \
+    else npm install --include=dev --no-audit --no-fund; fi
 COPY frontend/tailwind.input.css ./
 COPY frontend/templates/ ./templates/
 COPY frontend/static/ ./static/
