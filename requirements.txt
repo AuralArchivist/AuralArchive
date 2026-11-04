@@ -15,4 +15,4 @@ beautifulsoup4==4.14.3
 cryptography==50.0.1
 SQLAlchemy==2.1.1
 loguru==0.7.2
-audible==0.12.0
+audible==0.13.1
