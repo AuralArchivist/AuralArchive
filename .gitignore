@@ -1,0 +1,33 @@
+# App data and the built-in media folders
+/config/
+/media/
+/data/
+
+# Local settings and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Private compose files (the README has the sample)
+docker/*.yml
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Databases and logs
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# Frontend build tools
+frontend/node_modules/
+
+# Editors and OS files
+.vscode/
+.idea/
+.DS_Store
