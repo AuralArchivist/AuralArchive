@@ -2,7 +2,7 @@
 Module Name: service.py
 Author: AuralArchivist
 Created: October 2, 2026
-Last Modified: October 9, 2026
+Last Modified: November 6, 2026
 Description:
     Release calendar: watches (an Audible tag/category or a keyword), the
     upcoming and recent titles they find in the Audible catalog, and the
@@ -298,14 +298,12 @@ def sync_watch(watch_id: int) -> int:
         return 0
     start, end = window()
     products = [p for p in fetch_watch_products(watch, start, end) if p.get('asin')]
-    with container.get_engine().connect() as conn:
-        known_covers = dict(conn.execute(text("SELECT asin, cover_url FROM release_calendar")).fetchall())
-    # Covers are cached before the write transaction: the image cache must not wait on its lock
+    # Covers are cached before the write transaction: the image cache must not wait on its lock.
+    # Every sync goes through the cache so a cover is refreshed before it expires, or fetched again if it did.
     rows = []
     for product in products:
         row = _row_from_product(product)
-        cached = known_covers.get(row['asin'])
-        row['cover_url'] = cached if cached and cached.startswith('/') else _cache_cover(row['cover_url'])
+        row['cover_url'] = _cache_cover(row['cover_url'])
         rows.append(row)
     with container.get_engine().begin() as conn:
         for row in rows:
