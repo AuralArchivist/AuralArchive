@@ -54,7 +54,7 @@ from services.acquisition.search.query_variants import (
     build_series_book_queries as _build_series_book_queries,
     derive_series_queries_from_title as _derive_series_queries_from_title,
 )
-from services.acquisition.search.result_identity import result_key
+from services.acquisition.search.result_identity import drop_duplicate_postings, result_key
 
 logger = get_module_logger("API.Manual.Download")
 
@@ -398,12 +398,12 @@ def interactive_search_book(book_id):
 
         from services.acquisition.search.quality_assessor import QualityAssessor
         quality_assessor = QualityAssessor()
-        scored_results = quality_assessor.rank_results_by_quality(
+        scored_results = drop_duplicate_postings(quality_assessor.rank_results_by_quality(
             raw_results,
             search_title=search_title_for_scoring,
             search_author=search_author_for_scoring,
             query_components=query_components,
-        )
+        ))
         
         processed_results = manual_search_service.process_manual_search_results(
             raw_results=scored_results,

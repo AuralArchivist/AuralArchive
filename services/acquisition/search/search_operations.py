@@ -2,7 +2,7 @@
 Module Name: search_operations.py
 Author: AuralArchivist
 Created: August 26, 2025
-Last Modified: October 9, 2026
+Last Modified: November 7, 2026
 Description:
     Core search execution, history tracking, and result coordination for the
     search engine service.
@@ -22,7 +22,7 @@ from .query_variants import (
     build_series_book_queries,
     derive_series_queries_from_title,
 )
-from .result_identity import result_key
+from .result_identity import drop_duplicate_postings, result_key
 
 
 _LOGGER = get_module_logger("Service.SearchEngine.SearchOperations")
@@ -152,12 +152,12 @@ class SearchOperations:
                     "Assessing quality for search results",
                     extra={"result_count": len(raw_results), "title": title, "author": author},
                 )
-                scored_results = self.quality_assessor.rank_results_by_quality(
+                scored_results = drop_duplicate_postings(self.quality_assessor.rank_results_by_quality(
                     raw_results,
                     search_title=title,
                     search_author=author,
                     query_components=query_components,
-                )
+                ))
                 self.logger.info(
                     "Quality assessment complete",
                     extra={"scored_count": len(scored_results)},
