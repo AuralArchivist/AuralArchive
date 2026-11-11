@@ -2,7 +2,7 @@
 Module Name: searching.py
 Author: AuralArchivist
 Created: October 9, 2026
-Last Modified: October 9, 2026
+Last Modified: November 7, 2026
 Description:
     Search stage: finds a release on the indexers for a queued book, off
     the monitor thread.
@@ -108,7 +108,7 @@ class SearchStageMixin:
             book_series = book_data.get('Series')
             book_sequence = book_data.get('Sequence')
             query_components = BookMatcher.from_known_components(
-                book_series, book_sequence
+                book_series, book_sequence, title
             )
 
             search_results = search_service.search_for_audiobook(

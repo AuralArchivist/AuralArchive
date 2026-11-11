@@ -2,7 +2,7 @@
 Module Name: quality_assessor.py
 Author: AuralArchivist
 Created: August 26, 2025
-Last Modified: October 9, 2026
+Last Modified: November 7, 2026
 Description:
     Quality scoring system for audiobook search results. Assesses format
     preferences, bitrate, source reputation, metadata completeness, and
@@ -502,17 +502,22 @@ class QualityAssessor:
             meta['result_components_source'] = result_comps.source
             meta['exact_title'] = exact_title
 
-            number_status = self.book_matcher.compare_numbers(query_comps.book_number, result_number)
+            if query_comps.book_range:
+                number_status = self.book_matcher.compare_bundles(query_comps, result_comps)
+            else:
+                number_status = self.book_matcher.compare_numbers(query_comps.book_number, result_number)
             meta['book_number_status'] = number_status
+            expects_number = query_comps.book_number is not None or query_comps.book_range is not None
 
             if is_part:
                 title_score = 0.0
                 meta['book_number_status'] = 'part_split'
                 self.logger.debug("Partial release for a whole-book search")
-            elif (result_comps.is_bundle or series_bundle) and query_comps.book_number is not None:
+            elif number_status == 'bundle_mismatch' or (
+                    (result_comps.is_bundle or series_bundle) and query_comps.book_number is not None):
                 title_score = 0.0
                 meta['book_number_status'] = 'bundle_mismatch'
-                self.logger.debug("Bundle detected for single-book search")
+                self.logger.debug("Bundle does not match the searched book or range")
             elif number_status == 'exact':
                 title_score = min(title_score + 0.75, 2.5)
                 self.logger.debug(
@@ -531,7 +536,7 @@ class QualityAssessor:
                 )
             elif number_status == 'missing' and query_comps.book_number is not None and exact_title:
                 meta['book_number_status'] = 'missing_title_exact'
-            elif number_status == 'missing' and query_comps.book_number is not None:
+            elif number_status == 'missing' and expects_number:
                 title_score *= 0.2
                 meta['book_number_status'] = 'result_missing'
                 self.logger.debug(

@@ -2,7 +2,7 @@
 Module Name: book_matcher.py
 Author: AuralArchivist
 Created: June 9, 2026
-Last Modified: October 9, 2026
+Last Modified: November 7, 2026
 Description:
     Series and book number matching for search results.
 
@@ -12,7 +12,7 @@ Location:
 
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 
 # --- Patterns ----------------------------------------------------------------
@@ -67,6 +67,15 @@ _ROMAN_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_RANGE = re.compile(
+    r'\b(?:books?|bks?|vol(?:ume)?s?)\.?\s*#?\s*(\d+(?:\.\d+)?)\s*(?:-|\u2013|\u2014|to)\s*#?\s*(\d+(?:\.\d+)?)\b',
+    re.IGNORECASE,
+)
+
+_SEQUENCE_RANGE = re.compile(r'^\s*(\d+(?:\.\d+)?)\s*[-\u2013]\s*(\d+(?:\.\d+)?)\s*$')
+
+_COLLECTION_NUM = re.compile(r'\b(pack|box\s*set|omnibus|collection|bundle)\s*#?\s*(\d+)\b', re.IGNORECASE)
+
 
 # --- Data class --------------------------------------------------------------
 
@@ -76,6 +85,8 @@ class BookComponents:
     book_number: Optional[float]
     is_bundle: bool
     source: str
+    book_range: Optional[Tuple[float, float]] = None
+    collection: Optional[Tuple[str, int]] = None
 
 
 # --- Matcher -----------------------------------------------------------------
@@ -120,6 +131,8 @@ class BookMatcher:
                 book_number=book_number,
                 is_bundle=self._is_bundle(title),
                 source='structured',
+                book_range=self._book_range(title),
+                collection=self._collection(title),
             )
 
         # --- Path B: extracted ---
@@ -134,6 +147,8 @@ class BookMatcher:
         core = self._strip_subtitle(title)
 
         book_number = self._extract_book_number(core)
+        if book_number is None:
+            book_number = self._subtitle_number(title)
         series_name = self._extract_series_name(core, book_number)
 
         return BookComponents(
@@ -141,6 +156,8 @@ class BookMatcher:
             book_number=book_number,
             is_bundle=self._is_bundle(title),
             source='extracted',
+            book_range=self._book_range(title),
+            collection=self._collection(title),
         )
 
     # --- Number comparison ---
@@ -158,7 +175,19 @@ class BookMatcher:
         return 'exact' if abs(a - b) < 0.001 else 'mismatch'
 
     @staticmethod
-    def from_known_components(series_name: Optional[str], sequence_value: Optional[Any]) -> Optional['BookComponents']:
+    def compare_bundles(query: 'BookComponents', result: 'BookComponents') -> str:
+        """'exact', 'bundle_mismatch' or 'missing' for a bundle search (books 9-10).
+        The book range decides; without one, a numbered label like "Pack 4" does."""
+        if result.book_range is not None:
+            a, b = query.book_range, result.book_range
+            return 'exact' if abs(a[0] - b[0]) < 0.001 and abs(a[1] - b[1]) < 0.001 else 'bundle_mismatch'
+        if query.collection and result.collection:
+            return 'exact' if query.collection == result.collection else 'bundle_mismatch'
+        return 'missing'
+
+    @staticmethod
+    def from_known_components(series_name: Optional[str], sequence_value: Optional[Any],
+                              title: Optional[str] = None) -> Optional['BookComponents']:
         """Build BookComponents from a book's own Series/Sequence DB fields,
         bypassing title-string parsing entirely.
 
@@ -167,13 +196,25 @@ class BookMatcher:
         whichever query-string text happened to surface a given result -
         title-parsed numbers vary per query variant, this doesn't.
 
+        A range sequence ("9-10") gives a bundle with book_range set, plus the
+        numbered label from the book's title ("Publisher's Pack 5") when it has one.
         Returns None if there's no usable number - callers should fall back
         to extract_from_title()/extract_from_result() in that case, same as
         extract_from_result()'s own structured path degrades to parsing.
         """
         book_number = BookMatcher._parse_float(str(sequence_value)) if sequence_value else None
         if book_number is None:
-            return None
+            match = _SEQUENCE_RANGE.match(str(sequence_value or ''))
+            if not match:
+                return None
+            return BookComponents(
+                series_name=BookMatcher._clean_series(series_name),
+                book_number=None,
+                is_bundle=True,
+                source='structured',
+                book_range=(float(match.group(1)), float(match.group(2))),
+                collection=BookMatcher._collection(title),
+            )
         return BookComponents(
             series_name=BookMatcher._clean_series(series_name),
             book_number=book_number,
@@ -195,6 +236,18 @@ class BookMatcher:
         return bool(_BUNDLE.search(title))
 
     @staticmethod
+    def _collection(title: Optional[str]) -> Optional[Tuple[str, int]]:
+        match = _COLLECTION_NUM.search(title or '')
+        if not match:
+            return None
+        return re.sub(r'\s+', '', match.group(1).lower()), int(match.group(2))
+
+    @staticmethod
+    def _book_range(title: str) -> Optional[Tuple[float, float]]:
+        match = _RANGE.search(title or '')
+        return (float(match.group(1)), float(match.group(2))) if match else None
+
+    @staticmethod
     def _clean_series(name: Optional[str]) -> Optional[str]:
         if not name:
             return None
@@ -207,6 +260,16 @@ class BookMatcher:
         if len(stripped) > 5:
             return stripped
         return title
+
+    def _subtitle_number(self, title: str) -> Optional[float]:
+        """Book number placed in the subtitle: "Series: Book One ...", "Title: A LitRPG 2 - Author [M4B]"."""
+        if ':' not in title:
+            return None
+        subtitle = re.sub(r'\s*\[.*$', '', title.split(':', 1)[1])
+        subtitle = re.split(r'\s+-\s+', subtitle)[0]
+        number = self._extract_book_number(subtitle)
+        # A year ("A Novel of 1812") is not a book number
+        return number if number is not None and number < 1000 else None
 
     def _extract_book_number(self, text: str) -> Optional[float]:
         """

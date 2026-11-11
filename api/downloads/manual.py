@@ -2,7 +2,7 @@
 Module Name: manual.py
 Author: AuralArchivist
 Created: June 22, 2025
-Last Modified: October 9, 2026
+Last Modified: November 7, 2026
 Description:
     Manual Download and Search REST API. Provides manual and automatic search
     controls, queue operations, ownership checks, and metadata normalization to
@@ -394,7 +394,7 @@ def interactive_search_book(book_id):
         search_title_for_scoring = fallback_title
         search_author_for_scoring = fallback_author
 
-        query_components = BookMatcher.from_known_components(series, sequence_value)
+        query_components = BookMatcher.from_known_components(series, sequence_value, title)
 
         from services.acquisition.search.quality_assessor import QualityAssessor
         quality_assessor = QualityAssessor()
