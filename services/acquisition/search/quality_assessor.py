@@ -127,14 +127,15 @@ class QualityAssessor:
         indexers, which genuinely attempt to extract bitrate (from media
         attributes or by regex-matching the title) and only land on 0 when
         that attempt fails - a weaker but real signal of incomplete metadata,
-        which should still be penalized.
+        which should still be penalized. Through a Torznab feed the title can
+        carry the bitrate, so a value found there counts.
         """
         if any(str(key).startswith('mam_') for key in result.keys()):
             return False
         indexer_name = (result.get('indexer') or '').lower()
         source_tag = (result.get('_source') or '').lower()
         if 'audiobookbay' in indexer_name or 'audiobookbay' in source_tag:
-            return False
+            return bool(result.get('bitrate'))
         # MAM proxied through Prowlarr/Jackett arrives as plain Torznab
         if 'myanonamouse' in indexer_name:
             return False
