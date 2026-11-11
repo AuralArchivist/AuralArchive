@@ -752,7 +752,9 @@
             </div>
         ` : '';
 
-        const lastMessage = escapeHtml(item.last_error || item.error_message || item.last_message || '');
+        // error_message is the final failure reason, so it only applies while the download is failed
+        const failedReason = status.endsWith('FAILED') ? item.error_message : '';
+        const lastMessage = escapeHtml(item.last_error || failedReason || item.last_message || '');
 
         const ACTIVE_STATUSES = ['DOWNLOADING', 'CONVERTING', 'IMPORTING'];
         const liveMessage = (ACTIVE_STATUSES.includes(status) && item.progress_message)

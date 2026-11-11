@@ -2,7 +2,7 @@
 Module Name: management.py
 Author: AuralArchivist
 Created: June 30, 2025
-Last Modified: October 9, 2026
+Last Modified: November 7, 2026
 Description:
     REST API for download queue management and service control. Supports queue
     CRUD, pause/resume, stage-aware retry of failed items, bulk operations,
@@ -73,7 +73,8 @@ def _reset_for_retry(dm_service, download: Dict[str, Any], target_status: str) -
         'status': target_status,
         'retry_count': 0,
         'next_retry_at': None,
-        'last_error': None
+        'last_error': None,
+        'error_message': None
     })
     dm_service.event_emitter.emit_state_changed(
         download['id'],
