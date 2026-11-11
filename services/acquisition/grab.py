@@ -2,7 +2,7 @@
 Module Name: grab.py
 Author: AuralArchivist
 Created: October 9, 2026
-Last Modified: October 9, 2026
+Last Modified: November 7, 2026
 Description:
     Grab stage: sends a found release to qBittorrent, SABnzbd or NZBGet, or
     hands Audible downloads to their own workers.
@@ -227,16 +227,13 @@ class GrabMixin:
             lower_url = trimmed_url.lower()
 
             if lower_url.startswith("magnet:"):
-                if self._is_direct_provider_download(download, trimmed_url):
+                if self._magnet_allowed(download, trimmed_url):
                     torrent_payload = trimmed_url
-                    self.logger.warning(
-                        "Using direct-provider magnet fallback for download %s",
-                        download_id,
-                    )
+                    self.logger.info("Using magnet link for download %s", download_id)
                 else:
                     error_msg = (
-                        "Magnet sources are disabled in strict torrent-file mode; "
-                        "provider must return a .torrent file"
+                        "Magnet sources are only used for direct providers and public indexers; "
+                        "this private tracker must return a .torrent file"
                     )
                     self.logger.error(error_msg)
                     self.retry_handler.handle_failure(
@@ -262,16 +259,13 @@ class GrabMixin:
                 if fetched_type == "bytes" and fetched_payload:
                     torrent_payload = fetched_payload
                     self.logger.debug("Using server-fetched torrent payload for download %s", download_id)
-                elif fetched_type == "magnet" and fetched_payload and self._is_direct_provider_download(download, trimmed_url):
+                elif fetched_type == "magnet" and fetched_payload and self._magnet_allowed(download, trimmed_url):
                     torrent_payload = fetched_payload
-                    self.logger.warning(
-                        "Using direct-provider magnet fallback for download %s after HTML resolution",
-                        download_id,
-                    )
+                    self.logger.info("Using magnet link for download %s after resolving its download link", download_id)
                 else:
                     if fetched_type == "magnet":
                         error_msg = (
-                            "Provider resolved to magnet instead of .torrent file in strict mode"
+                            "Private tracker resolved to a magnet instead of a .torrent file"
                         )
                     else:
                         error_msg = (

@@ -2,7 +2,7 @@
 Module Name: torrent_fetch.py
 Author: AuralArchivist
 Created: October 9, 2026
-Last Modified: October 9, 2026
+Last Modified: November 7, 2026
 Description:
     Fetches .torrent files for the download client, including direct
     providers that need a session cookie.
@@ -372,6 +372,21 @@ class TorrentFetchMixin:
                 return None, ""
 
         return None, ""
+
+    def _magnet_allowed(self, download: Dict[str, Any], download_url: str) -> bool:
+        """Direct providers and public indexers may hand over a magnet; private trackers
+        need the .torrent so the passkey and ratio tracking stay intact."""
+        return self._is_direct_provider_download(download, download_url) or self._is_public_indexer(download)
+
+    def _is_public_indexer(self, download: Dict[str, Any]) -> bool:
+        indexer_name = str(download.get('indexer') or '').strip().lower()
+        if not indexer_name:
+            return False
+        indexers = container.get_config_service().list_indexers_config() or {}
+        for key, data in indexers.items():
+            if str(data.get('name') or key).strip().lower() == indexer_name:
+                return not data.get('private', False)
+        return False
 
     def _is_direct_provider_download(self, download: Dict[str, Any], download_url: str) -> bool:
         """Best-effort detection for direct-provider sourced torrents."""
