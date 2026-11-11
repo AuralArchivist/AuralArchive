@@ -288,6 +288,8 @@ class TorznabBaseIndexer(FeedIndexer):
             "category": item.category,
             "info_url": item.info_url,
         }
+        if item.attributes.get("infohash"):
+            result["info_hash"] = item.attributes["infohash"].strip().lower()
 
         format_info = self._extract_format(item.title)
         media_primary, media_extras = self._extract_media_details(item.attributes)
