@@ -2,7 +2,7 @@
 Module Name: torznab_base_indexer.py
 Author: AuralArchivist
 Created: February 18, 2026
-Last Modified: October 9, 2026
+Last Modified: November 7, 2026
 Description:
     Base class for Torznab indexers (Jackett, Prowlarr).
 
@@ -42,6 +42,7 @@ class TorznabItem:
     category: str
     guid: str
     attributes: Dict[str, str] = field(default_factory=dict)
+    tracker_type: str = ""
 
 
 class TorznabBaseIndexer(FeedIndexer):
@@ -163,6 +164,7 @@ class TorznabBaseIndexer(FeedIndexer):
             category=attrs.get("category", self.CATEGORY_AUDIOBOOK),
             guid=guid,
             attributes=attrs,
+            tracker_type=self._get_text(element, "type", "").lower(),
         )
 
     def _parse_capabilities(self, root: ET.Element) -> Dict[str, Any]:
@@ -306,7 +308,8 @@ class TorznabBaseIndexer(FeedIndexer):
                 result[field_name] = media_primary.pop(field_name)
         if media_extras:
             result["media_info"] = media_extras
-        freeleech = self._freeleech_status(item.title, item.attributes)
+        # Public trackers have no ratio, but some feeds still report downloadvolumefactor 0 for them
+        freeleech = None if item.tracker_type == "public" else self._freeleech_status(item.title, item.attributes)
         if freeleech:
             result["freeleech"] = freeleech
         if item.attributes:
