@@ -952,8 +952,15 @@ class QualityAssessor:
                 key=lambda x: (x['quality_assessment'].match_confidence, x['quality_assessment'].release_quality),
                 reverse=True,
             )
+            top = "; ".join(
+                f"{r['quality_assessment'].match_confidence:.0f}% "
+                f"{r['quality_assessment'].breakdown.get('book_number_status') or '-'} {r.get('title', '')[:80]}"
+                for r in scored_results[:3]
+            )
             self.logger.info(
-                "Ranking complete",
+                "Ranking complete: %d results, top: %s",
+                len(scored_results),
+                top or "none",
                 extra={"result_count": len(scored_results)},
             )
             return scored_results
