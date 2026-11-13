@@ -2,7 +2,7 @@
 {% block title %}Settings · AuralArchive{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}?v=22">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}?v=24">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/connected-services.css') }}?v=1">
 {% endblock %}
 
@@ -835,6 +835,48 @@
                             </ul>
                         </div>
                     </div>
+                    <div class="nb-actions">
+                        <button type="button" id="nbNew" class="btn btn-sm btn-primary">New layout</button>
+                        <button type="button" id="nbEdit" class="btn btn-sm btn-ghost" disabled>Edit layout</button>
+                        <button type="button" id="nbDelete" class="btn btn-sm btn-ghost text-error" disabled>Delete layout</button>
+                        <span id="nbListStatus" class="aa-hint"></span>
+                    </div>
+
+                    <section id="nbBuilder" class="nb-builder" hidden aria-label="Layout builder">
+                        <div class="aa-field nb-name">
+                            <label class="aa-flabel" for="nbName">Layout name</label>
+                            <input id="nbName" type="text" class="input input-bordered input-sm w-full" maxlength="40" autocomplete="off" />
+                        </div>
+
+                        <div class="nb-palette" role="toolbar" aria-label="Blocks">
+                            <span class="aa-hint">Drag blocks onto the line, or click one to add it after the selected block. Each / starts a new folder; the last folder holds the book.</span>
+                            <div id="nbPalette" class="nb-chips"></div>
+                        </div>
+
+                        <div id="nbStrip" class="nb-chips nb-strip" aria-label="Layout"></div>
+
+                        <div id="nbOptions" class="nb-options" hidden></div>
+
+                        <ul id="nbMessages" class="nb-messages"></ul>
+
+                        <div class="aa-preview">
+                            <p class="aa-pk">Preview</p>
+                            <ul id="nbPreview" class="nb-preview"></ul>
+                        </div>
+
+                        <div class="nb-actions">
+                            <button type="button" id="nbSave" class="btn btn-sm btn-primary">Save layout</button>
+                            <button type="button" id="nbCancel" class="btn btn-sm btn-ghost">Cancel</button>
+                            <span id="nbStatus" class="aa-hint"></span>
+                        </div>
+                    </section>
+
+                    <div class="aa-field nb-words">
+                        <label class="aa-flabel" for="mm_marketing_words">Marketing words</label>
+                        <input id="mm_marketing_words" type="text" class="input input-bordered input-sm w-full" autocomplete="off" />
+                        <span class="aa-hint">A title's subtitle is dropped from folder names when it contains one of these, so "All the Skills: A Deck-Building LitRPG" becomes "All the Skills". Separate words with commas. Simple and Simple ASIN keep full titles.</span>
+                    </div>
+
                     <p class="aa-hint" style="padding-top:12px;">Library, downloads and import folder locations are set in <a href="#storage" class="link link-primary" data-settings-jump="storage">Settings &rsaquo; Storage</a>.</p>
                 </div>
             </div>
@@ -1737,9 +1779,10 @@
     });
 })();
 </script>
-<script src="{{ url_for('static', filename='js/settings.js') }}?v=15"></script>
+<script src="{{ url_for('static', filename='js/settings.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/storage.js') }}?v=5"></script>
-<script src="{{ url_for('static', filename='js/libraries.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/libraries.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/naming-builder.js') }}?v=2"></script>
 <script src="{{ url_for('static', filename='js/audiobookshelf-settings.js') }}?v=2"></script>
 <script src="{{ url_for('static', filename='js/connected-services.js') }}?v=2"></script>
 <script src="{{ url_for('static', filename='js/metadata_refresh.js') }}?v=8"></script>

@@ -2,7 +2,7 @@
 Module Name: libraries.py
 Author: AuralArchivist
 Created: October 3, 2026
-Last Modified: October 9, 2026
+Last Modified: November 12, 2026
 Description:
     Libraries API: the library list, routing rules, moving books between
     libraries and the library a queued download will go to.
@@ -44,6 +44,7 @@ from core.logging import get_module_logger
 from services.library import LibraryError
 from services.library.router import IMPORT_STARTED, choose_library
 from services.container import container
+from services.processing.naming.layout_store import list_layouts
 
 libraries_api = Blueprint('libraries_api', __name__, url_prefix='/api/libraries')
 logger = get_module_logger("API.System.Libraries")
@@ -63,7 +64,7 @@ def _settings():
 def list_libraries():
     from services.library.storage_status import get_storage_report
     report = get_storage_report()
-    templates = container.get_file_naming_service().get_available_templates()
+    templates = [{'name': entry['name'], 'label': entry['label']} for entry in list_layouts()]
     return jsonify({
         'success': True,
         'libraries': report.get('libraries') or [],

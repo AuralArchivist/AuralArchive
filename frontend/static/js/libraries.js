@@ -63,7 +63,7 @@
 
     function fillTemplates() {
         fields.template.innerHTML = `<option value="">Use the global template</option>`
-            + state.templates.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
+            + state.templates.map((t) => `<option value="${esc(t.name)}">${esc(t.label)}</option>`).join("");
     }
 
     function openEditor(lib) {
@@ -307,5 +307,6 @@
         });
     }
 
+    document.addEventListener("aa:naming-layouts-changed", load);
     load();
 })();

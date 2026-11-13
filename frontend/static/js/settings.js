@@ -2262,7 +2262,21 @@
             }
         }
         renderNamingPreview(currentTemplate);
+        setInputValue("mm_marketing_words", state.mediaSettings.marketing_words || "");
+        document.dispatchEvent(new CustomEvent("aa:naming-templates-loaded"));
     }
+
+    // The layout builder saved or deleted a layout: reload the list and show a new one
+    document.addEventListener("aa:naming-layouts-changed", async (event) => {
+        await loadAllData({ silent: true });
+        const name = event.detail && event.detail.name;
+        const templateSelect = document.getElementById("mm_naming_template");
+        if (name && templateSelect && state.namingTemplates.some((entry) => entry.name === name)) {
+            templateSelect.value = name;
+            renderNamingPreview(name);
+            templateSelect.dispatchEvent(new Event("change"));
+        }
+    });
 
     function handleNamingTemplateChange(event) {
         renderNamingPreview(event.target.value);
@@ -2354,7 +2368,8 @@
 
         const templateValue = getInputValue("mm_naming_template") || "simple";
         const mediaPayload = {
-            naming_template: templateValue
+            naming_template: templateValue,
+            marketing_words: getInputValue("mm_marketing_words")
         };
 
         const conversionPayload = {

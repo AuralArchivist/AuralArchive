@@ -2,7 +2,7 @@
 Module Name: settings.py
 Author: AuralArchivist
 Created: July 26, 2025
-Last Modified: October 9, 2026
+Last Modified: November 12, 2026
 Description:
     Settings dashboard routes with tabbed AJAX views and diagnostics helpers.
 
@@ -22,6 +22,7 @@ from core.logging import get_module_logger, set_log_level
 from core.net_guard import OutboundURLRejected, validate_outbound_url
 from core.paths import MEDIA_FOLDERS, get_path_resolver, validate_user_media_path
 from services.library.storage_status import get_storage_report, invalidate_banner_cache
+from services.processing.naming.layout_store import list_layouts, marketing_words
 
 logger = get_module_logger("Routes.Settings")
 
@@ -817,17 +818,13 @@ def get_naming_templates():
     """Return available naming templates with preview examples."""
     try:
         file_naming_service = container.get_file_naming_service()
-        templates = file_naming_service.get_available_templates()
         sample_books = _get_sample_books_for_preview()
 
         base_path = get_path_resolver().get_library_dir()
 
         template_payload = []
-        label_map = {
-            'simple': 'Simple',
-            'simple_asin': 'Simple ASIN'
-        }
-        for template_name in templates:
+        for entry in list_layouts():
+            template_name = entry['name']
             example_entries = []
             for book in sample_books:
                 try:
@@ -845,7 +842,8 @@ def get_naming_templates():
 
             template_payload.append({
                 'name': template_name,
-                'label': label_map.get(template_name, template_name.replace('_', ' ').title()),
+                'label': entry['label'],
+                'built_in': entry['built_in'],
                 'examples': example_entries
             })
 
@@ -908,6 +906,7 @@ def get_media_management_config():
             'success': True,
             'config': {
                 'naming_template': naming_config.get('naming_template', 'simple'),
+                'marketing_words': ', '.join(marketing_words()),
                 'verify_after_import': import_config.get('verify_after_import', True),
                 'create_backup_on_error': import_config.get('create_backup_on_error', True),
                 'delete_source_after_import': import_config.get('delete_source_after_import', False),
@@ -940,8 +939,7 @@ def save_media_management_config():
     """Save media management configuration."""
     try:
         config_service = container.get_config_service()
-        file_naming_service = container.get_file_naming_service()
-        
+
         data = request.get_json() or {}
 
         def to_bool_str(value, default=False):
@@ -956,25 +954,10 @@ def save_media_management_config():
         # Only the groups a form sends are written, so one form's save can't reset another's
         updates = {}
         if 'naming_template' in data:
-            template = data.get('naming_template') or 'simple'
-            if template == 'custom':
-                custom_template = data.get('custom_template', '')
-                if not custom_template:
-                    return jsonify({
-                        'success': False,
-                        'message': 'Custom template cannot be empty'
-                    }), 400
-
-                is_valid, errors = file_naming_service.validate_template(custom_template)
-                if not is_valid:
-                    return jsonify({
-                        'success': False,
-                        'message': 'Invalid custom template',
-                        'errors': errors
-                    }), 400
-
-                template = custom_template
-            updates['naming.naming_template'] = template
+            updates['naming.naming_template'] = data.get('naming_template') or 'simple'
+        if 'marketing_words' in data:
+            words = [word.strip() for word in str(data.get('marketing_words') or '').split(',') if word.strip()]
+            updates['naming.marketing_words'] = ', '.join(words)
 
         for key, default in (('verify_after_import', True), ('create_backup_on_error', True),
                              ('delete_source_after_import', False), ('overwrite_existing_files', False)):
