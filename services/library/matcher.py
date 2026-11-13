@@ -2,7 +2,7 @@
 Module Name: matcher.py
 Author: AuralArchivist
 Created: October 9, 2026
-Last Modified: October 9, 2026
+Last Modified: November 12, 2026
 Description:
     The one "which book is this?" matcher for files on disk, shared by
     manual import, Library Import and the library check.
@@ -20,6 +20,9 @@ from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 from core.logging import get_module_logger
 from core.text import format_runtime
 from services.container import container
+from services.processing.naming.layout import BUILT_IN_LAYOUTS
+from services.processing.naming.layout_reader import read_folders
+from services.processing.naming.layout_store import get_layout
 
 from .local_metadata_extractor import LocalMetadataExtractor
 
@@ -141,17 +144,30 @@ class BookFileMatcher:
         self.metadata_service = container.get_metadata_update_service()
         self.metadata_extractor = LocalMetadataExtractor()
 
+    def folder_hints(self, path: str) -> Dict[str, Any]:
+        """What the folders say about a book, read with the layout of the library that holds it."""
+        lib = container.get_library_repository().library_for_path(path)
+        if not lib:
+            return {}
+        name = lib.get('naming_template') or container.get_import_service().naming_template
+        layout = get_layout(name) or BUILT_IN_LAYOUTS['simple']
+        rel = os.path.relpath(path, lib['root'])
+        return read_folders(layout, [] if rel == '.' else rel.split(os.sep))
+
     def match_folder(self, folder: Dict[str, Any]) -> Dict[str, Any]:
-        """Extract embedded metadata and resolve the best metadata match."""
+        """Extract embedded metadata and resolve the best metadata match.
+        Tags come first; the folders fill in what the tags leave out."""
         primary = folder['primary_file']
 
         extracted = self.metadata_extractor.extract_metadata(primary)
+        hints = self.folder_hints(folder['path'])
         asin_hint = extracted.get('asin')
         if not asin_hint:
-            asin_hint = asin_in_names(extracted.get('filename') or os.path.basename(primary))
-        title_source = extracted.get('title') or extracted.get('clean_title') or folder['name']
+            asin_hint = asin_in_names(extracted.get('filename') or os.path.basename(primary)) or hints.get('asin')
+        title_source = (extracted.get('title') or extracted.get('clean_title') or hints.get('title')
+                        or folder['name'])
         title_hint = normalize_search_title(title_source) if title_source else None
-        author_hint = extracted.get('author') or extracted.get('album_artist')
+        author_hint = extracted.get('author') or extracted.get('album_artist') or hints.get('author')
 
         abs_hint = None
         if not asin_hint:
