@@ -2,7 +2,7 @@
 Module Name: qbittorrent_client.py
 Author: AuralArchivist
 Created: August 26, 2025
-Last Modified: October 9, 2026
+Last Modified: November 11, 2026
 Description:
     qBittorrent client implementation for the download subsystem.
 
@@ -211,8 +211,8 @@ class QBittorrentClient(BaseTorrentClient):
 
         try:
             response = self._submit_torrent(torrent_data, payload)
-            self._validate_add_response(response)
-            new_hash = self._wait_for_new_torrent(known_hashes, expected_hash)
+            added_hash = self._validate_add_response(response)
+            new_hash = added_hash or self._wait_for_new_torrent(known_hashes, expected_hash)
             if new_hash:
                 return {"success": True, "hash": new_hash}
 
@@ -660,12 +660,21 @@ class QBittorrentClient(BaseTorrentClient):
         raise ValueError("Unsupported torrent_data type")
 
     @staticmethod
-    def _validate_add_response(response: Response) -> None:
-        text = (response.text or "").strip().lower()
-        if response.status_code != 200 or text not in {"ok", "ok."}:
-            raise QBittorrentRequestError(
-                f"qBittorrent returned {response.status_code}: {response.text.strip()}"
-            )
+    def _validate_add_response(response: Response) -> Optional[str]:
+        """Return the new torrent's hash when qBittorrent names it. Before 5.2 the reply is
+        "Ok."; from 5.2 it is JSON with the added torrent IDs, and 202 while a link is fetched."""
+        text = (response.text or "").strip()
+        if response.status_code == 200 and text.lower() in {"ok", "ok."}:
+            return None
+        if response.status_code in (200, 202):
+            try:
+                reply = response.json()
+            except ValueError:
+                reply = None
+            if isinstance(reply, dict) and (reply.get("success_count") or reply.get("pending_count")):
+                added = reply.get("added_torrent_ids") or []
+                return str(added[0]).lower() if added else None
+        raise QBittorrentRequestError(f"qBittorrent returned {response.status_code}: {text}")
 
     def _get_existing_hashes(self) -> set[str]:
         try:
