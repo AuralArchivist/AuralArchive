@@ -2,18 +2,20 @@
 Module Name: file_naming_service.py
 Author: AuralArchivist
 Created: August 26, 2025
-Last Modified: October 9, 2026
+Last Modified: November 12, 2026
 Description:
-    Singleton service for generating AudioBookShelf-compatible file paths and
-    filenames using user-configurable templates and sanitization helpers.
+    Singleton service for generating Audiobookshelf-compatible file paths and
+    filenames from the selected block layout, with sanitization helpers.
 
 Location:
     /services/processing/naming/file_naming_service.py
 """
 
-from typing import Dict, Optional, List
+import os
+from typing import Any, Dict, List
 
-from .template_parser import TemplateParser
+from .layout import BUILT_IN_LAYOUTS, render, uses_asin
+from .layout_store import get_layout, marketing_words
 from .path_generator import PathGenerator
 from .sanitizer import PathSanitizer
 from core.logging import get_module_logger
@@ -27,15 +29,9 @@ class FileNamingService:
     def __init__(self, *_, logger=None, **__):
         self.logger = logger or _LOGGER
 
-        self.template_parser = TemplateParser()
         self.path_generator = PathGenerator()
         self.sanitizer = PathSanitizer()
         self._config_loaded = False
-
-        self.templates = {
-            'simple': '{author}/{series}/{title}/{title}',
-            'simple_asin': '{author}/{series}/{title}/{title} [{asin}]'
-        }
 
         self.include_asin = False
         self.create_author_folders = True
@@ -74,43 +70,37 @@ class FileNamingService:
                 self.include_asin = naming_config.get('include_asin_in_path', False)
                 self.create_author_folders = naming_config.get('create_author_folders', True)
                 self.create_series_folders = naming_config.get('create_series_folders', True)
-                
-                custom_templates = naming_config.get('naming_templates', {})
-                if custom_templates:
-                    self.templates.update(custom_templates)
-                
+
                 self._config_loaded = True
                 self.logger.debug("Loaded naming configuration", extra={"include_asin": self.include_asin, "create_author_folders": self.create_author_folders, "create_series_folders": self.create_series_folders})
         except Exception as e:
             self.logger.warning("Could not load configuration, using defaults", extra={"error": str(e)})
             self._config_loaded = True
     
-    def get_template(self, template_name: str = 'simple') -> str:
-        """Get a naming template by name."""
-        return self.template_parser.get_template(template_name, self.templates)
-    
-    def add_custom_template(self, name: str, template: str) -> bool:
-        """Add or update a custom naming template."""
-        return self.template_parser.add_custom_template(name, template, self.templates)
-    
-    def validate_template(self, template: str) -> tuple[bool, Optional[str]]:
-        """Validate a naming template."""
-        return self.template_parser.validate_template(template)
-    
-    def generate_file_path(self, book_data: Dict, base_path: str, template_name: str = 'simple', 
-                          file_extension: str = 'm4b') -> str:
-        """Generate a complete file path for an audiobook."""
+    def _layout(self, template_name: str) -> Dict[str, Any]:
+        layout = get_layout(template_name)
+        if layout is None:
+            self.logger.warning("Naming layout %s not found, using Simple", template_name)
+            return BUILT_IN_LAYOUTS['simple']
+        return layout
+
+    def _parts(self, book_data: Dict, template_name: str) -> List[str]:
+        """Folders, then the file name, each sanitized."""
         self._load_configuration()
-        
-        return self.path_generator.generate_file_path(
-            book_data=book_data,
-            base_path=base_path,
-            template=self.get_template(template_name),
-            file_extension=file_extension,
-            include_asin=self.include_asin,
-            sanitizer=self.sanitizer
-        )
-    
+        layout = self._layout(template_name)
+        parts = render(layout, book_data, marketing_words())
+        asin = book_data.get('ASIN', book_data.get('asin'))
+        if self.include_asin and asin and not uses_asin(layout):
+            parts[-1] = f"{parts[-1]} [{asin}]"
+        return [self.sanitizer.sanitize_path_component(part) for part in parts]
+
+    def generate_file_path(self, book_data: Dict, base_path: str, template_name: str = 'simple',
+                           file_extension: str = 'm4b') -> str:
+        """Generate a complete file path for an audiobook."""
+        *folders, filename = self._parts(book_data, template_name)
+        full_path = os.path.join(base_path, *folders, f"{filename}.{file_extension}")
+        return self.sanitizer.sanitize_path(full_path)
+
     def generate_folder_path(self, book_data: Dict, base_path: str) -> str:
         """Generate just the folder path (no filename)."""
         self._load_configuration()
@@ -123,19 +113,11 @@ class FileNamingService:
             sanitizer=self.sanitizer
         )
     
-    def generate_filename(self, book_data: Dict, template_name: str = 'simple', 
-                         file_extension: str = 'm4b') -> str:
+    def generate_filename(self, book_data: Dict, template_name: str = 'simple',
+                          file_extension: str = 'm4b') -> str:
         """Generate just the filename (no path)."""
-        self._load_configuration()
-        
-        return self.path_generator.generate_filename(
-            book_data=book_data,
-            template=self.get_template(template_name),
-            file_extension=file_extension,
-            include_asin=self.include_asin,
-            sanitizer=self.sanitizer
-        )
-    
+        return f"{self._parts(book_data, template_name)[-1]}.{file_extension}"
+
     def sanitize_path(self, path: str) -> str:
         """Sanitize a file path for cross-platform compatibility."""
         return self.sanitizer.sanitize_path(path)
@@ -143,16 +125,3 @@ class FileNamingService:
     def sanitize_filename(self, filename: str) -> str:
         """Sanitize a filename for cross-platform compatibility."""
         return self.sanitizer.sanitize_filename(filename)
-    
-    def parse_abs_path(self, file_path: str) -> Dict[str, Optional[str]]:
-        """Parse an existing ABS file path to extract metadata.
-
-        Returns:
-            Dictionary with extracted metadata (author, series, title, asin, etc.)
-        """
-        return self.path_generator.parse_abs_path(file_path, self.sanitizer)
-    
-    def get_available_templates(self) -> List[str]:
-        """Get list of available template names."""
-        return list(self.templates.keys())
-    

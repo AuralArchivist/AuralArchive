@@ -2,17 +2,16 @@
 Module Name: template_parser.py
 Author: AuralArchivist
 Created: August 26, 2025
-Last Modified: October 25, 2026
+Last Modified: November 12, 2026
 Description:
-    Parses and validates naming templates, handling variable substitution and
-    validation for AudioBookShelf-friendly paths.
+    Reads the values naming layouts write (author, title, series, number, year,
+    narrator, ASIN, publisher, runtime) from a book's data.
 
 Location:
     /services/processing/naming/template_parser.py
 """
 
-import re
-from typing import Dict, Optional, Tuple
+from typing import Dict
 from core.logging import get_module_logger
 
 _LOGGER = get_module_logger("Service.FileNaming.TemplateParser")
@@ -20,107 +19,17 @@ _LOGGER = get_module_logger("Service.FileNaming.TemplateParser")
 
 class TemplateParser:
     """
-    Parses naming templates with variable substitution.
-    
-    Supported variables:
-    - {author} - Primary author name
-    - {title} - Book title
-    - {series} - Series name
-    - {series_number} - Book number in series (e.g., "1", "1.5")
-    - {year} - Publication year
-    - {narrator} - Primary narrator name
-    - {asin} - Audible ASIN
-    - {publisher} - Publisher name
-    - {runtime} - Runtime in format "Xh Ym"
+    Reads the values naming layouts write from a book's data.
+
+    Values: author, title, series, series_number ("1", "1.5"), year, narrator,
+    asin, publisher and runtime ("Xh Ym").
     """
-    
-    VALID_VARIABLES = {
-        'author', 'title', 'series', 'series_number', 'year',
-        'narrator', 'asin', 'publisher', 'runtime'
-    }
     
     def __init__(self, *, logger=None):
         self.logger = logger or _LOGGER
-        self.variable_pattern = re.compile(r'\{(\w+)\}')
-    
-    def get_template(self, template_name: str, templates: Dict[str, str]) -> str:
-        """Get a template by name, falling back to 'simple' if not found."""
-        template = templates.get(template_name)
-        if not template:
-            self.logger.warning(f"Template '{template_name}' not found, using 'simple'")
-            return templates.get('simple', '{author}/{series}/{title}/{title}')
-        return template
-    
-    def add_custom_template(self, name: str, template: str, templates: Dict[str, str]) -> bool:
-        """Add or update a custom template after validation."""
-        try:
-            is_valid, error = self.validate_template(template)
-            if not is_valid:
-                self.logger.error(f"Invalid template '{name}': {error}")
-                return False
-            
-            templates[name] = template
-            self.logger.info(f"Added custom template '{name}': {template}")
-            return True
-        except Exception as e:
-            self.logger.error(f"Error adding template '{name}': {e}", exc_info=True)
-            return False
-    
-    def validate_template(self, template: str) -> Tuple[bool, Optional[str]]:
-        """Validate a template string.
 
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
-        if not isinstance(template, str) or not template.strip():
-            return False, "Template cannot be empty"
-        
-        variables = self.variable_pattern.findall(template)
-        
-        invalid_vars = [var for var in variables if var not in self.VALID_VARIABLES]
-        if invalid_vars:
-            return False, f"Invalid variables: {', '.join(invalid_vars)}"
-        
-        if '..' in template:
-            return False, "Template cannot contain path traversal sequences (..)"
-        
-        if template.startswith('/') or template.startswith('\\'):
-            return False, "Template cannot start with absolute path separator"
-        
-        if re.match(r'^[a-zA-Z]:', template):
-            return False, "Template cannot contain Windows drive letters"
-        
-        return True, None
-    
-    def parse_template(self, template: str, book_data: Dict) -> str:
-        """Parse a template by substituting variables with book data."""
-        try:
-            result = template
-            
-            for var in self.VALID_VARIABLES:
-                placeholder = '{' + var + '}'
-                if placeholder in result:
-                    value = self._get_variable_value(var, book_data)
-                    if value is None:
-                        value_str = ''
-                    elif isinstance(value, str):
-                        value_str = value
-                    else:
-                        value_str = str(value)
-                    result = result.replace(placeholder, value_str)
-            
-            while '//' in result:
-                result = result.replace('//', '/')
-
-            result = result.replace('/N/A/', '/').replace('N/A/', '').replace('/N/A', '')
-
-            return result.strip('/')
-        except Exception as e:
-            self.logger.error(f"Error parsing template: {e}")
-            raise
-    
     def _get_variable_value(self, variable: str, book_data: Dict) -> str:
-        """Get the value for a template variable from book data."""
+        """Get one value from book data."""
         
         if variable == 'author':
             authors = (
