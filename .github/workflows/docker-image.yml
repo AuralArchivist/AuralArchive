@@ -1,0 +1,198 @@
+name: Docker image
+
+# Builds linux/amd64 and linux/arm64 on a native runner for each, then merges
+# them into one manifest so one tag works on both. Runs on a v* tag or by hand.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Platforms to build, comma separated"
+        required: false
+        default: "linux/amd64,linux/arm64"
+      push:
+        description: "Push the image to ghcr.io (untick to build only)"
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: auralarchive
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      arches: ${{ steps.matrix.outputs.arches }}
+      version: ${{ steps.version.outputs.version }}
+      minor: ${{ steps.version.outputs.minor }}
+      image: ${{ steps.version.outputs.image }}
+      build_date: ${{ steps.version.outputs.build_date }}
+      release: ${{ steps.version.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version and namespace
+        id: version
+        run: |
+          version="$(tr -d ' \t\n\r' < VERSION)"
+          if [ -z "$version" ]; then
+              echo "ERROR: could not read version from VERSION" >&2
+              exit 1
+          fi
+          # The tag must match VERSION, or a forgotten bump moves :latest.
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+              if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+                  echo "ERROR: git tag '${GITHUB_REF_NAME}' does not match VERSION '${version}'" >&2
+                  echo "       bump VERSION (or name the tag v${version}) before releasing" >&2
+                  exit 1
+              fi
+          fi
+          # ghcr.io requires a lowercase namespace.
+          owner="$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "minor=${version%.*}" >> "$GITHUB_OUTPUT"
+          echo "image=${REGISTRY}/${owner}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          # Only a v* tag may move :latest and :<minor>.
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+              echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+              echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Choose a native runner per platform
+        id: matrix
+        env:
+          INPUT: ${{ inputs.platforms }}
+        run: |
+          platforms="${INPUT:-linux/amd64,linux/arm64}"
+          matrix=""
+          arches=""
+          seen=""
+          # Space separated: tolerates a space after the comma, skips duplicates.
+          for platform in $(echo "$platforms" | tr ',' ' '); do
+              case " $seen " in
+                  *" $platform "*) continue ;;
+              esac
+              seen="$seen $platform"
+              case "$platform" in
+                  linux/amd64) arch=amd64; runner=ubuntu-24.04 ;;
+                  linux/arm64) arch=arm64; runner=ubuntu-24.04-arm ;;
+                  *) echo "ERROR: unsupported platform '$platform'" >&2
+                     echo "       supported: linux/amd64, linux/arm64" >&2
+                     exit 1 ;;
+              esac
+              arches="$arches $arch"
+              matrix="$matrix{\"platform\":\"$platform\",\"arch\":\"$arch\",\"runner\":\"$runner\"},"
+          done
+          if [ -z "$matrix" ]; then
+              echo "ERROR: no platforms selected" >&2
+              exit 1
+          fi
+          echo "matrix={\"include\":[${matrix%,}]}" >> "$GITHUB_OUTPUT"
+          echo "arches=$(echo $arches)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Sign in to ghcr.io
+        if: ${{ github.event_name == 'push' || inputs.push }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # No attestations on the fragment: they would merge as unknown/unknown.
+      - name: Build ${{ matrix.arch }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: ${{ github.event_name == 'push' || inputs.push }}
+          load: false
+          provenance: false
+          sbom: false
+          tags: ${{ needs.plan.outputs.image }}:${{ needs.plan.outputs.version }}-${{ matrix.arch }}
+          build-args: |
+            APP_VERSION=${{ needs.plan.outputs.version }}
+            BUILD_DATE=${{ needs.plan.outputs.build_date }}
+          # The two architectures can never share cache layers.
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+
+  publish:
+    needs: [plan, build]
+    if: ${{ github.event_name == 'push' || inputs.push }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Sign in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish manifest
+        env:
+          IMAGE: ${{ needs.plan.outputs.image }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          MINOR: ${{ needs.plan.outputs.minor }}
+          ARCHES: ${{ needs.plan.outputs.arches }}
+          RELEASE: ${{ needs.plan.outputs.release }}
+          SHA: ${{ github.sha }}
+        run: |
+          sources=()
+          for arch in $ARCHES; do
+              sources+=("${IMAGE}:${VERSION}-${arch}")
+          done
+
+          # A hand-run build must not move :latest, which the README points at.
+          if [ "$RELEASE" = true ]; then
+              tags=("${IMAGE}:${VERSION}" "${IMAGE}:${MINOR}" "${IMAGE}:latest")
+          else
+              tags=("${IMAGE}:${VERSION}-dev.${SHA:0:7}")
+          fi
+
+          args=()
+          for tag in "${tags[@]}"; do
+              args+=(-t "$tag")
+              echo "  -> $tag"
+          done
+
+          echo "Combining: ${sources[*]}"
+          docker buildx imagetools create "${args[@]}" "${sources[@]}"
+
+      - name: Show manifest
+        env:
+          IMAGE: ${{ needs.plan.outputs.image }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          RELEASE: ${{ needs.plan.outputs.release }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ "$RELEASE" = true ]; then
+              docker buildx imagetools inspect "${IMAGE}:${VERSION}"
+          else
+              docker buildx imagetools inspect "${IMAGE}:${VERSION}-dev.${SHA:0:7}"
+          fi

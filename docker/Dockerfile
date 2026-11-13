@@ -13,10 +13,13 @@
 # it, so the standalone build is installed with uv and copied into the image.
 
 # CSS build stage
-FROM node:22-slim AS css-builder
+# Pinned to $BUILDPLATFORM: minified CSS is architecture-independent.
+FROM --platform=$BUILDPLATFORM node:22-slim AS css-builder
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci --include=dev
+# npm ci needs a lockfile, so fall back to a plain install when the build has none.
+RUN if [ -f package-lock.json ]; then npm ci --include=dev; \
+    else npm install --include=dev --no-audit --no-fund; fi
 COPY frontend/tailwind.input.css ./
 COPY frontend/templates/ ./templates/
 COPY frontend/static/ ./static/
@@ -26,6 +29,7 @@ RUN npx @tailwindcss/cli -i tailwind.input.css -o static/css/tailwind.css --mini
 # No --enable-gpl / --enable-nonfree. Only FFmpeg's own components plus
 # libopus (BSD-3-Clause) and zlib (zlib license) are linked in, statically.
 # The final image ships the FFmpeg source tarball and all license texts.
+# Compiled for the target architecture, so the arm64 image keeps its NEON asm.
 FROM debian:trixie-slim AS ffmpeg-builder
 ARG FFMPEG_VERSION=8.1.3
 ARG FFMPEG_SHA256=7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3
@@ -86,6 +90,7 @@ RUN mkdir -p /opt/licenses/ffmpeg /opt/licenses/opus /opt/licenses/zlib \
 
 # Python stage: free-threaded interpreter plus dependencies (compilers never
 # reach the final image)
+# Not pinned to $BUILDPLATFORM: uv installs Python and wheels for the target arch.
 FROM debian:trixie-slim AS py-builder
 ARG PYTHON_VERSION=3.14.8
 COPY --from=ghcr.io/astral-sh/uv:0.13.0 /uv /usr/local/bin/uv
@@ -146,6 +151,10 @@ RUN mkdir -p /config /library /downloads /import /work \
 
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod 755 /entrypoint.sh
+
+# Below the last RUN: the build date must not invalidate the stage's layer cache.
+ARG BUILD_DATE=unknown
+LABEL org.opencontainers.image.created="${BUILD_DATE}"
 
 EXPOSE 8765
 
