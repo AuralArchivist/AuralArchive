@@ -2,7 +2,7 @@
 Module Name: migrations.py
 Author: AuralArchivist
 Created: August 26, 2025
-Last Modified: October 9, 2026
+Last Modified: November 12, 2026
 Description:
     Initializes and migrates the SQLite schema for AuralArchive. Migrations
     are additive-only and idempotent: each one checks PRAGMA table_info
@@ -1205,6 +1205,21 @@ class DatabaseMigrations:
             if trimmed:
                 migrations_applied += 1
                 self.logger.info(f"Trimmed the time from {trimmed} release dates")
+
+            # Migration 28: naming layouts users build from blocks (the built-ins live in code)
+            cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='naming_templates'")
+            layouts_existed = cursor.fetchone()[0] > 0
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS naming_templates (
+                    name TEXT PRIMARY KEY,
+                    layout TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            if not layouts_existed:
+                migrations_applied += 1
+                self.logger.info("Created naming_templates table")
 
             if migrations_applied > 0:
                 conn.commit()

@@ -2,7 +2,7 @@
 Module Name: app.py
 Author: AuralArchivist
 Created: July 15, 2025
-Last Modified: October 10, 2026
+Last Modified: November 12, 2026
 Description:
     Builds the Flask/SocketIO app, wires blueprints and starts core services.
     Run with `python app.py`, which starts Gunicorn (server.py).
@@ -38,6 +38,7 @@ from api.downloads.management import download_management_bp
 from api.system.imports import import_api_bp
 from api.system.library_import import library_import_api_bp
 from api.system.libraries import libraries_api
+from api.system.naming_layouts import naming_layouts_api
 from api.system.audiobookshelf import abs_api
 from api.downloads.manual import manual_search_api_bp
 from api.settings.settings import settings_api_bp
@@ -246,6 +247,7 @@ def create_app(config_class=Config):
     app.register_blueprint(import_api_bp)
     app.register_blueprint(library_import_api_bp)
     app.register_blueprint(libraries_api)
+    app.register_blueprint(naming_layouts_api)
     app.register_blueprint(abs_api)
     app.register_blueprint(system_validation_bp)
     app.register_blueprint(hardcover_api_bp)
