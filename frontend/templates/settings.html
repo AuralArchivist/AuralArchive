@@ -8,6 +8,30 @@
 
 {% block content %}
 <div class="w-full space-y-0 aa-settings">
+    {# Phones open /settings on this list; a section opens with a back arrow #}
+    <nav class="settings-home aa-m" aria-label="Settings sections">
+        {% for group, items in [('App', [('general', 'General')]),
+                                ('Library', [('storage', 'Storage'), ('media', 'Media Management'), ('metadata', 'Metadata')]),
+                                ('Downloads', [('download-clients', 'Download Clients'), ('download-management', 'Download Management'),
+                                               ('indexers', 'Indexers'), ('match', 'Match & Quality')]),
+                                ('Connections', [('audiobookshelf', 'Audiobookshelf'), ('connected-services', 'Connected Services'),
+                                                 ('discovery', 'Discovery')]),
+                                ('System', [('maintenance', 'Maintenance')])] %}
+        <h2 class="settings-home-group">{{ group }}</h2>
+        <div class="settings-home-list">
+            {% for key, label in items %}
+            <a href="#{{ key }}" class="settings-home-link" data-settings-jump="{{ key }}">
+                <span>{{ label }}</span>
+                {% if key == 'storage' and storage_alerts %}<span class="badge badge-error badge-soft badge-sm">{{ storage_alerts | length }} problem{{ 's' if storage_alerts | length != 1 }}</span>{% endif %}
+                <i class="fas fa-chevron-right" aria-hidden="true"></i>
+            </a>
+            {% endfor %}
+            {% if group == 'Library' %}
+            <a href="/settings/hidden-titles" class="settings-home-link"><span>Hidden titles</span><i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </nav>
     <div class="save-toolbar -mx-4 sm:-mx-6 lg:-mx-10 -mt-6 mb-6 px-4 sm:px-6 lg:px-10">
         <div class="flex items-center gap-4">
             <span class="hidden sm:block" style="width:3px;height:1.5rem;border-radius:.25rem;background:var(--color-primary);"></span>
@@ -456,6 +480,16 @@
                     <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="dm_hold_non_freeleech">Hold for freeleech</label><div class="aa-hint">Refuse a non-freeleech grab until the hold period elapses, then fall back to the best available match.</div></div><div class="aa-rc"><input id="dm_hold_non_freeleech" type="checkbox" class="toggle toggle-success" /></div></div>
                     <div class="aa-grid">
                         <div class="aa-field"><label class="aa-flabel" for="dm_freeleech_hold_days">Freeleech hold (days)</label><input id="dm_freeleech_hold_days" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="14" /></div>
+                    </div>
+                    <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="dm_auto_fl_wedge">Use FL wedges automatically</label><div class="aa-hint">Spend a freeleech wedge when the picked MyAnonamouse release is not already freeleech or VIP. Wedges are not refunded.</div></div><div class="aa-rc"><input id="dm_auto_fl_wedge" type="checkbox" class="toggle toggle-success" /></div></div>
+                    <div class="aa-grid">
+                        <div class="aa-field"><label class="aa-flabel" for="dm_fl_wedge_reserve">Keep at least (wedges)</label><input id="dm_fl_wedge_reserve" type="number" min="0" step="1" class="input input-bordered w-full" placeholder="0" /></div>
+                        <div class="aa-field aa-c2"><label class="aa-flabel" for="dm_fl_wedge_when_out">When no wedges are left</label>
+                            <select id="dm_fl_wedge_when_out" class="select select-bordered w-full">
+                                <option value="download">Download without a wedge</option>
+                                <option value="wait">Wait for wedges</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="aa-row aa-tog"><div class="aa-rl"><label class="aa-lbl" for="dm_duplicate_grab_protection">Duplicate-grab protection</label><div class="aa-hint">Skip results already snatched on that tracker.</div></div><div class="aa-rc"><input id="dm_duplicate_grab_protection" type="checkbox" class="toggle toggle-success" /></div></div>
                 </div>
@@ -1726,9 +1760,20 @@
     const links = subnav.querySelectorAll('.settings-sub-link');
     const titleEl = document.getElementById('settingsSectionTitle');
 
+    const phone = window.matchMedia('(max-width: 767px)');
+    const phoneTitle = document.querySelector('.aa-topbar-title');
+
+    // Phones show either the section list or one section, named in the top bar
+    function showOnPhone(section) {
+        document.documentElement.dataset.settingsView = section ? 'section' : 'list';
+        const link = section && subnav.querySelector('[data-settings-section="' + section + '"]');
+        if (phoneTitle) phoneTitle.textContent = link ? link.querySelector('span').textContent : 'Settings';
+    }
+
     function activate(section) {
         const target = document.getElementById('settingsPanel-' + section);
         if (!target) return false;
+        showOnPhone(section);
         document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
         target.classList.add('active');
         links.forEach(l => l.classList.remove('active'));
@@ -1747,7 +1792,22 @@
     if (!(fromHash && activate(fromHash))) {
         const saved = sessionStorage.getItem('settingsActiveSection');
         if (saved) activate(saved);
+        showOnPhone(null);
     }
+
+    // Opening a section from the phone list adds a history entry, so the
+    // phone's back button returns to the list
+    document.querySelectorAll('.settings-home-link[data-settings-jump]').forEach(link => {
+        link.addEventListener('click', () => {
+            history.pushState(null, '', '#' + link.dataset.settingsJump);
+            window.scrollTo(0, 0);
+        });
+    });
+    window.addEventListener('popstate', () => {
+        if (!phone.matches) return;
+        const section = window.location.hash.replace('#', '');
+        if (!(section && activate(section))) showOnPhone(null);
+    });
 
     document.querySelectorAll('[data-settings-jump]').forEach(el => {
         el.addEventListener('click', function(e) {
@@ -1779,7 +1839,7 @@
     });
 })();
 </script>
-<script src="{{ url_for('static', filename='js/settings.js') }}?v=16"></script>
+<script src="{{ url_for('static', filename='js/settings.js') }}?v=17"></script>
 <script src="{{ url_for('static', filename='js/storage.js') }}?v=5"></script>
 <script src="{{ url_for('static', filename='js/libraries.js') }}?v=2"></script>
 <script src="{{ url_for('static', filename='js/naming-builder.js') }}?v=2"></script>

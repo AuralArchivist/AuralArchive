@@ -2,7 +2,7 @@
 Module Name: settings.py
 Author: AuralArchivist
 Created: July 26, 2025
-Last Modified: November 12, 2026
+Last Modified: November 23, 2026
 Description:
     Settings dashboard routes with tabbed AJAX views and diagnostics helpers.
 
@@ -1119,6 +1119,9 @@ def get_download_management_config():
                 'prefer_freeleech': get_bool('prefer_freeleech', False),
                 'hold_non_freeleech': get_bool('hold_non_freeleech', False),
                 'freeleech_hold_days': get_int('freeleech_hold_days', 14),
+                'auto_fl_wedge': get_bool('auto_fl_wedge', False),
+                'fl_wedge_reserve': get_int('fl_wedge_reserve', 0),
+                'fl_wedge_when_out': get_str('fl_wedge_when_out', 'download'),
                 'duplicate_grab_protection': get_bool('duplicate_grab_protection', True)
             }
         })
@@ -1161,6 +1164,9 @@ def save_download_management_config():
             'download_management.prefer_freeleech': str(data.get('prefer_freeleech', False)).lower(),
             'download_management.hold_non_freeleech': str(data.get('hold_non_freeleech', False)).lower(),
             'download_management.freeleech_hold_days': str(data.get('freeleech_hold_days', 14)),
+            'download_management.auto_fl_wedge': str(data.get('auto_fl_wedge', False)).lower(),
+            'download_management.fl_wedge_reserve': str(data.get('fl_wedge_reserve', 0)),
+            'download_management.fl_wedge_when_out': data.get('fl_wedge_when_out', 'download'),
             'download_management.duplicate_grab_protection': str(data.get('duplicate_grab_protection', True)).lower()
         }
         

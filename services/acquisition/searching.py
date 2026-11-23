@@ -2,7 +2,7 @@
 Module Name: searching.py
 Author: AuralArchivist
 Created: October 9, 2026
-Last Modified: November 7, 2026
+Last Modified: November 23, 2026
 Description:
     Search stage: finds a release on the indexers for a queued book, off
     the monitor thread.
@@ -12,9 +12,14 @@ Location:
 """
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
 
 from .search.book_matcher import BookMatcher
 from services.container import container
+
+# A release held for freeleech or FL wedges is checked again this often,
+# without using up the search retries
+WAIT_RETRY = timedelta(hours=6)
 
 
 class SearchStageMixin:
@@ -145,9 +150,17 @@ class SearchStageMixin:
             min_match_score = prefs.get('min_match_score', 80.0)
             min_quality_score = prefs.get('min_quality_score', 70.0)
 
-            best_result, failure_reason = self._select_best_candidate(
+            best_result, failure_reason, waiting = self._select_best_candidate(
                 results, min_match_score, min_quality_score, download.get('queued_at')
             )
+
+            if best_result is None and waiting:
+                self.logger.info("Download %s waiting: %s", download_id, failure_reason)
+                self.queue_manager.update_download(download_id, {
+                    'last_error': failure_reason,
+                    'next_retry_at': (datetime.utcnow() + WAIT_RETRY).isoformat(),
+                })
+                return
 
             if best_result is None:
                 error_msg = failure_reason or f"No eligible search results found for {title} by {author}"

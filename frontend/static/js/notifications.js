@@ -13,6 +13,7 @@
     const countEl = document.getElementById("notifCount");
     const listEl = document.getElementById("notifList");
     const emptyEl = document.getElementById("notifEmpty");
+    const panel = dropdown.querySelector(".aa-notif-panel");
     const esc = (value) => AA.escapeHtml(value == null ? "" : String(value));
 
     const ICONS = {
@@ -102,6 +103,8 @@
             return;
         }
         const id = row.dataset.id;
+        // The panel stays open only while focus is inside it, and the tapped row is about to go
+        panel.focus({ preventScroll: true });
         if (target.dataset.action === "dismiss") {
             event.preventDefault();
             row.remove();
@@ -126,6 +129,8 @@
         await call(`${API}/read-all`, "POST");
         loadList();
     });
+    // Phones show the panel as a full-screen sheet; it closes when focus leaves it
+    document.getElementById("notifClose").addEventListener("click", () => document.activeElement.blur());
     document.getElementById("notifClearAll").addEventListener("click", async () => {
         await call(`${API}/dismiss-all`, "POST");
         render([]);

@@ -2,10 +2,10 @@
 Module Name: scoring.py
 Author: AuralArchivist
 Created: October 9, 2026
-Last Modified: October 9, 2026
+Last Modified: November 23, 2026
 Description:
     Picks the best search result for a download, applying the match and
-    quality thresholds and the ratio, freeleech and grab-limit rules.
+    quality thresholds and the ratio, freeleech, wedge and grab-limit rules.
 
 Location:
     /services/acquisition/scoring.py
@@ -17,7 +17,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import text
 
 from .ratio_provider import estimate_ratio_after_grab, get_ratio_snapshot_for_indexer
+from integrations.indexers.providers.myanonamouse import needs_fl_wedge, with_fl_wedge
 from services.container import container
+from services.sync.accounts import mam_account
 
 
 class ScoringMixin:
@@ -29,16 +31,17 @@ class ScoringMixin:
         min_match_score: float,
         min_quality_score: float,
         queued_at: Optional[str],
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str], bool]:
         """Rank and filter search results, applying the match/quality
         thresholds plus the optional ratio/freeleech/duplicate-grab automatic
         search rules. Falls through to the next-best candidate when one is
         disqualified by a rule below (duplicate grab, ratio floor, freeleech
-        hold) instead of failing the whole search outright - only match
+        hold, waiting for FL wedges) instead of failing the whole search outright - only match
         confidence, which is monotonic with the sort order, short-circuits
         the scan early.
 
-        Returns (winning_result, None) or (None, failure_reason).
+        Returns (winning_result, None, False), or (None, reason, waiting) where
+        waiting means a release was held for freeleech or FL wedges.
         """
         def _unwrap(entry: Dict[str, Any]) -> Dict[str, Any]:
             if not isinstance(entry, dict):
@@ -88,6 +91,7 @@ class ScoringMixin:
         ranked = sorted(results, key=_sort_key, reverse=True)
         hold_expired = self._freeleech_hold_expired(queued_at)
         held_count = 0
+        wedge_waits = 0
 
         for entry in ranked:
             payload = _unwrap(entry)
@@ -106,8 +110,10 @@ class ScoringMixin:
             if self.duplicate_grab_protection and _is_duplicate_grab(payload):
                 continue
 
+            wedge = self._fl_wedge_plan(payload)
             indexer_name = payload.get('indexer') or entry.get('indexer')
-            if self.ratio_protection_enabled and indexer_name:
+            # A wedged release costs no ratio
+            if self.ratio_protection_enabled and indexer_name and wedge != 'spend':
                 if not self._passes_ratio_floor(indexer_name, payload):
                     continue
 
@@ -118,15 +124,46 @@ class ScoringMixin:
                 held_count += 1
                 continue
 
-            return payload, None
+            if wedge == 'wait':
+                wedge_waits += 1
+                continue
+
+            if wedge == 'spend':
+                payload = {**payload, 'download_url': with_fl_wedge(payload['download_url'])}
+                self.logger.info("Spending an FL wedge on %s", payload.get('title'))
+
+            return payload, None, False
+
+        if wedge_waits:
+            return None, (
+                f"{wedge_waits} eligible result(s) waiting for FL wedges "
+                f"(keeping at least {self.fl_wedge_reserve})"
+            ), True
 
         if held_count:
             return None, (
                 f"{held_count} eligible non-freeleech result(s) held pending freeleech "
                 f"(retries until {self.freeleech_hold_days}-day hold expires)"
-            )
+            ), True
 
-        return None, "No eligible search results after applying match/quality/ratio/duplicate-grab rules"
+        return None, "No eligible search results after applying match/quality/ratio/duplicate-grab rules", False
+
+    def _fl_wedge_plan(self, payload: Dict[str, Any]) -> Optional[str]:
+        """'spend' or 'wait' when the automatic wedge option covers this release, else None."""
+        if not self.auto_fl_wedge or not needs_fl_wedge(payload):
+            return None
+        cookie = mam_account.get_linked_cookie(container.get_config_service())
+        stats = mam_account.get_cached_stats(cookie) if cookie else None
+        wedges = stats.get('wedge_count') if stats else None
+        if wedges is not None and wedges > self.fl_wedge_reserve:
+            # The count drops once the grab happens; read it fresh next time
+            mam_account.invalidate_cache(cookie)
+            return 'spend'
+        self.logger.info(
+            "No FL wedge to spend on %s (have %s, keeping %s)",
+            payload.get('title'), 'unknown' if wedges is None else wedges, self.fl_wedge_reserve,
+        )
+        return 'wait' if self.fl_wedge_when_out == 'wait' else None
 
     def _freeleech_hold_expired(self, queued_at: Optional[str]) -> bool:
         """True once freeleech_hold_days have elapsed since the book was

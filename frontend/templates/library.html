@@ -16,6 +16,22 @@
                    class="input input-sm input-bordered w-full bg-base-100">
         </div>
 
+        <button type="button" class="btn library-filters-btn aa-m" data-panel-open="libraryFilters" aria-controls="libraryFilters">
+            <i class="fas fa-sliders" aria-hidden="true"></i> Filters
+            <span id="filterCount" class="badge badge-primary badge-sm hidden"></span>
+        </button>
+        <div id="activeFilterChips" class="library-chips aa-m hidden" aria-label="Active filters"></div>
+
+        {# Phones show these fields as a bottom sheet; on larger screens the wrapper has no box #}
+        <div id="libraryFilters" class="library-filters aa-panel" aria-label="Filters">
+        <div class="aa-panel-head aa-m">
+            <h2>Filters</h2>
+            <button type="button" class="btn btn-ghost btn-sm" data-clear-filters>Clear filters</button>
+            <button type="button" class="btn btn-ghost btn-square" data-panel-close aria-label="Close filters">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+            </button>
+        </div>
+
         <div class="library-field">
             <label for="statusFilter" class="library-label">Status</label>
             <select id="statusFilter" class="select select-sm select-bordered bg-base-100">
@@ -89,7 +105,21 @@
             </div>
         </div>
 
+        <fieldset class="library-columns aa-m">
+            <legend class="library-label">Grid size</legend>
+            <div class="library-columns__seg">
+                <button type="button" data-columns="3" aria-pressed="true">3 columns</button>
+                <button type="button" data-columns="2" aria-pressed="false">2 columns</button>
+            </div>
+        </fieldset>
+
+        <div class="library-filters-foot aa-m">
+            <button type="button" id="filterShowBtn" class="btn btn-primary w-full" data-panel-close>Show books</button>
+        </div>
+        </div>
+
         <div class="library-toolbar-end">
+            <span id="libraryCount" class="library-count aa-m"></span>
             <div class="flex gap-0.5 rounded-sm border border-base-content/10 bg-base-200 p-0.5">
                 <button type="button" class="btn btn-xs btn-primary btn-soft" id="viewGridBtn" title="Grid view">
                     <i class="fas fa-th"></i>
@@ -101,11 +131,11 @@
                     <i class="fas fa-table"></i>
                 </button>
             </div>
-            <button type="button" class="btn btn-ghost btn-sm" id="clearFiltersBtn">
+            <button type="button" class="btn btn-ghost btn-sm aa-d" id="clearFiltersBtn">
                 <i class="fas fa-rotate-left"></i> Clear filters
             </button>
             <button type="button" class="btn btn-soft btn-primary btn-sm" id="selectModeBtn">
-                <i class="fas fa-check-square"></i> Select Books
+                <i class="fas fa-check-square"></i> <span class="aa-d">Select Books</span><span class="aa-m">Select</span>
             </button>
         </div>
 
@@ -120,16 +150,17 @@
             <button class="btn btn-soft" id="selectAllBtn" aria-label="Select all books">
                 <i class="fas fa-check-double" aria-hidden="true"></i> Select All
             </button>
-            <button class="btn btn-soft" id="clearSelectionBtn" aria-label="Clear selection">
+            <button type="button" class="btn btn-primary aa-m" data-sheet-open="bulkActionsSheet">Actions</button>
+            <button class="btn btn-soft aa-d" id="clearSelectionBtn" aria-label="Clear selection">
                 <i class="fas fa-times" aria-hidden="true"></i> Clear Selection
             </button>
-            <button class="btn btn-soft btn-primary" id="updateMetadataBtn" aria-label="Update metadata for selected books">
+            <button class="btn btn-soft btn-primary aa-d" id="updateMetadataBtn" aria-label="Update metadata for selected books">
                 <i class="fas fa-sync" aria-hidden="true"></i> Update Metadata
             </button>
-            <button class="btn btn-soft btn-accent" id="changeStatusBtn" aria-label="Change status of selected books">
+            <button class="btn btn-soft btn-accent aa-d" id="changeStatusBtn" aria-label="Change status of selected books">
                 <i class="fas fa-exchange-alt" aria-hidden="true"></i> Change Status
             </button>
-            <button class="btn btn-soft btn-error" id="deleteSelectedBtn" aria-label="Delete selected books">
+            <button class="btn btn-soft btn-error aa-d" id="deleteSelectedBtn" aria-label="Delete selected books">
                 <i class="fas fa-trash" aria-hidden="true"></i> Delete Selected
             </button>
         </div>
@@ -175,6 +206,30 @@
     window.libraryBooks = {{ books|tojson|safe }};
     window.libraryLibraries = {{ libraries|tojson|safe }};
 </script>
+
+<dialog id="bookActionsSheet" class="aa-sheet" aria-labelledby="bookActionsTitle">
+    <div class="aa-sheet-box">
+        <div class="aa-sheet-handle" aria-hidden="true"></div>
+        <h2 id="bookActionsTitle" class="aa-sheet-title"></h2>
+        <div class="aa-action-list">
+            <button type="button" data-book-action="details"><i class="fas fa-circle-info" aria-hidden="true"></i>Book details</button>
+            <button type="button" data-book-action="search"><i class="fas fa-download" aria-hidden="true"></i>Interactive download</button>
+            <button type="button" data-book-action="auto"><i class="fas fa-bolt" aria-hidden="true"></i>Auto download</button>
+        </div>
+    </div>
+</dialog>
+
+<dialog id="bulkActionsSheet" class="aa-sheet" aria-label="Actions for selected books">
+    <div class="aa-sheet-box">
+        <div class="aa-sheet-handle" aria-hidden="true"></div>
+        <div class="aa-action-list">
+            <button type="button" data-click="updateMetadataBtn"><i class="fas fa-sync" aria-hidden="true"></i>Update metadata</button>
+            <button type="button" data-click="changeStatusBtn"><i class="fas fa-exchange-alt" aria-hidden="true"></i>Change status</button>
+            <button type="button" data-click="clearSelectionBtn"><i class="fas fa-times" aria-hidden="true"></i>Clear selection</button>
+            <button type="button" data-click="deleteSelectedBtn" class="is-danger"><i class="fas fa-trash" aria-hidden="true"></i>Delete selected</button>
+        </div>
+    </div>
+</dialog>
 
 <dialog id="progressModal" class="modal">
     <div class="modal-box">
@@ -336,5 +391,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/library.js') }}?v=11"></script>
+<script src="{{ url_for('static', filename='js/library.js') }}?v=14"></script>
 {% endblock %}

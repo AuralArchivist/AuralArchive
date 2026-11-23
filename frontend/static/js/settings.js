@@ -2251,6 +2251,9 @@
         setCheckboxValue("dm_prefer_freeleech", state.downloadSettings.prefer_freeleech);
         setCheckboxValue("dm_hold_non_freeleech", state.downloadSettings.hold_non_freeleech);
         setNumericInput("dm_freeleech_hold_days", state.downloadSettings.freeleech_hold_days, 14);
+        setCheckboxValue("dm_auto_fl_wedge", state.downloadSettings.auto_fl_wedge);
+        setNumericInput("dm_fl_wedge_reserve", state.downloadSettings.fl_wedge_reserve, 0);
+        setInputValue("dm_fl_wedge_when_out", state.downloadSettings.fl_wedge_when_out || "download");
         setCheckboxValue("dm_duplicate_grab_protection", state.downloadSettings.duplicate_grab_protection);
 
         let currentTemplate = templateSelect ? templateSelect.value : "simple";
@@ -2446,6 +2449,9 @@
             prefer_freeleech: getCheckboxValue("dm_prefer_freeleech"),
             hold_non_freeleech: getCheckboxValue("dm_hold_non_freeleech"),
             freeleech_hold_days: toNumeric(getInputValue("dm_freeleech_hold_days"), state.downloadSettings.freeleech_hold_days || 14),
+            auto_fl_wedge: getCheckboxValue("dm_auto_fl_wedge"),
+            fl_wedge_reserve: toNumeric(getInputValue("dm_fl_wedge_reserve"), state.downloadSettings.fl_wedge_reserve || 0),
+            fl_wedge_when_out: getInputValue("dm_fl_wedge_when_out") || "download",
             duplicate_grab_protection: getCheckboxValue("dm_duplicate_grab_protection")
         };
 

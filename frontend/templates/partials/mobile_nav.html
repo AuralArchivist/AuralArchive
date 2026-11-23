@@ -1,0 +1,93 @@
+{# Phone navigation: tab bar, section switcher, top bar title and More sheet.
+   Imported "with context" by base.html; hidden above 767 px by mobile.css. #}
+{% set ep = request.endpoint or '' %}
+{% set back = none %}
+
+{% if ep in ('main.dashboard', 'main.index') %}
+    {% set tab, title = 'home', 'Home' %}
+{% elif ep in ('library.library_page', 'series.series_list', 'authors.authors_page') %}
+    {% set tab, title = 'library', 'Library' %}
+{% elif ep == 'series.series_detail' %}
+    {% set tab, title, back = 'library', 'Series', '/series/' %}
+{% elif ep == 'authors.author_detail_page' %}
+    {% set tab, title, back = 'library', 'Author', '/authors/' %}
+{% elif ep in ('discover.discover_page', 'release_calendar.calendar_page', 'hardcover.hardcover_page') %}
+    {% set tab, title = 'discover', 'Discover' %}
+{% elif ep in ('downloads.downloads_page', 'import_page.import_dashboard') %}
+    {% set tab, title = 'activity', 'Activity' %}
+{% elif ep == 'library_import_page.library_import_dashboard' %}
+    {% set tab, title, back = 'activity', 'Library Import', '/import' %}
+{% elif ep == 'search.search_page' %}
+    {% set tab, title = 'more', 'Search' %}
+{% elif ep == 'settings.hidden_titles_page' %}
+    {% set tab, title, back = 'more', 'Hidden titles', '/settings/' %}
+{% elif ep == 'settings.settings_page' %}
+    {# The back arrow shows only inside a section (settings.html sets data-settings-view) #}
+    {% set tab, title, back = 'more', 'Settings', '/settings/' %}
+{% elif ep == 'profile.profile_page' %}
+    {% set tab, title = 'more', 'Profile' %}
+{% else %}
+    {% set tab, title = 'more', 'AuralArchive' %}
+{% endif %}
+
+{% set groups = {
+    'library': [('Books', '/library', 'library.library_page'), ('Series', '/series', 'series.series_list'),
+                ('Authors', '/authors', 'authors.authors_page')],
+    'discover': [('Discover', '/discover', 'discover.discover_page'), ('Calendar', '/calendar', 'release_calendar.calendar_page'),
+                 ('Hardcover', '/hardcover', 'hardcover.hardcover_page')],
+    'activity': [('Downloads', '/downloads', 'downloads.downloads_page'), ('Import', '/import', 'import_page.import_dashboard')],
+} %}
+{% set segments = groups.get(tab, []) if ep in (groups.get(tab, []) | map(attribute=2) | list) else [] %}
+
+{% macro segment_row() %}
+{% if segments %}
+<nav class="aa-segments aa-m" aria-label="{{ title }} sections">
+    {% for label, href, endpoint in segments %}
+    <a href="{{ href }}" class="aa-segment{{ ' is-active' if endpoint == ep }}"{{ ' aria-current="page"' | safe if endpoint == ep }}>
+        {{ label }}{% if endpoint == 'import_page.import_dashboard' and import_review_count %}<span class="aa-segment-badge">{{ import_review_count }}</span>{% endif %}
+    </a>
+    {% endfor %}
+</nav>
+{% endif %}
+{% endmacro %}
+
+{% macro tab_link(key, href, icon, label) %}
+<a href="{{ href }}" class="aa-tab{{ ' is-active' if tab == key }}"{{ ' aria-current="page"' | safe if tab == key }}>
+    <span class="aa-tab-icon"><i class="fas {{ icon }}" aria-hidden="true"></i>{{ caller() if caller }}</span>{{ label }}
+</a>
+{% endmacro %}
+
+{% macro tab_bar() %}
+<nav class="aa-tabbar aa-m" aria-label="Main">
+    {{ tab_link('home', '/', 'fa-house', 'Home') }}
+    {{ tab_link('library', '/library', 'fa-book', 'Library') }}
+    {{ tab_link('discover', '/discover', 'fa-compass', 'Discover') }}
+    {% call tab_link('activity', '/downloads', 'fa-download', 'Activity') %}<span id="tabActivityBadge" class="aa-tab-badge{{ '' if import_review_count else ' hidden' }}" data-reviews="{{ import_review_count or 0 }}">{{ import_review_count or '' }}</span>{% endcall %}
+    <button type="button" class="aa-tab{{ ' is-active' if tab == 'more' }}" data-sheet-open="moreSheet" aria-haspopup="dialog">
+        <span class="aa-tab-icon"><i class="fas fa-grip" aria-hidden="true"></i></span>More
+    </button>
+</nav>
+
+<dialog id="moreSheet" class="aa-sheet" aria-label="More">
+    <div class="aa-sheet-box">
+        <div class="aa-sheet-handle" aria-hidden="true"></div>
+        <a href="/profile" class="aa-more-user">
+            <span class="aa-more-avatar">{{ current_user.username[0] | upper }}</span>
+            <span class="min-w-0 flex-1"><b class="block truncate">{{ current_user.username }}</b><small>Profile and password</small></span>
+            <i class="fas fa-chevron-right" aria-hidden="true"></i>
+        </a>
+        <h2 class="aa-sheet-label">All pages</h2>
+        <div class="aa-more-grid">
+            {% for label, href, icon in [('Library', '/library', 'fa-book'), ('Series', '/series', 'fa-layer-group'),
+                                        ('Authors', '/authors', 'fa-user-pen'), ('Search', '/search', 'fa-search'),
+                                        ('Downloads', '/downloads', 'fa-download'), ('Import', '/import', 'fa-file-import'),
+                                        ('Discover', '/discover', 'fa-compass'), ('Calendar', '/calendar', 'fa-calendar-days'),
+                                        ('Hardcover', '/hardcover', 'fa-book-open-reader'), ('Settings', '/settings', 'fa-cog')] %}
+            <a href="{{ href }}" class="aa-more-link"><i class="fas {{ icon }}" aria-hidden="true"></i>{{ label }}</a>
+            {% endfor %}
+        </div>
+        <a href="/settings/#general" class="aa-more-row"><i class="fas fa-palette" aria-hidden="true"></i><span class="flex-1">Theme</span><span id="currentThemeName" class="text-base-content/60"></span></a>
+        <a href="/auth/logout" class="aa-more-row text-error"><i class="fas fa-sign-out-alt" aria-hidden="true"></i><span class="flex-1">Log out</span></a>
+    </div>
+</dialog>
+{% endmacro %}

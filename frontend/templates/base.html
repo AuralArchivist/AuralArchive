@@ -35,8 +35,10 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/status-bar.css') }}?v=3">
     
     {% block extra_css %}{% endblock %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}?v=8">
 </head>
 <body class="bg-base-100 text-base-content{% if 'settings' in request.endpoint %} settings-canvas{% elif request.endpoint == 'library.library_page' %} library-canvas{% elif 'series' in request.endpoint %} series-canvas{% elif 'authors' in request.endpoint %} authors-canvas{% elif 'downloads' in request.endpoint %} downloads-canvas{% elif 'library_import' in request.endpoint %} library-import-canvas{% elif 'import' in request.endpoint %} import-canvas{% elif request.endpoint == 'search.search_page' %} search-canvas{% elif request.endpoint in ['main.dashboard', 'main.index'] %} dashboard-canvas{% elif request.endpoint == 'release_calendar.calendar_page' %} calendar-canvas{% endif %}">
+    {% import 'partials/mobile_nav.html' as mnav with context %}
     <input id="layout-drawer" type="checkbox" class="layout-drawer-toggle">
     <div class="layout-shell">
         <aside class="layout-sidebar bg-base-200 border-r border-base-content/10 flex flex-col">
@@ -213,12 +215,16 @@
         <div class="layout-main">
             <div class="navbar layout-navbar bg-base-100/80 border-b border-base-content/10 backdrop-blur px-4 sm:px-6 lg:px-10">
                 <div class="flex-none">
-                    <label for="layout-drawer" class="btn btn-ghost btn-square md:hidden" aria-label="Toggle navigation">
+                    <label for="layout-drawer" class="btn btn-ghost btn-square md:hidden aa-d" aria-label="Toggle navigation">
                         <i class="fas fa-bars text-base"></i>
                     </label>
+                    {% if mnav.back %}
+                    <a href="{{ mnav.back }}" class="btn btn-ghost btn-square aa-m{{ ' settings-back' if request.endpoint == 'settings.settings_page' }}" aria-label="Back"><i class="fas fa-arrow-left text-base" aria-hidden="true"></i></a>
+                    {% endif %}
                 </div>
                 <div class="flex-1 flex items-center justify-between gap-4">
-                    <span class="hidden sm:inline text-sm font-semibold uppercase tracking-[0.35em] text-base-content/60">AuralArchive</span>
+                    <span class="hidden sm:inline text-sm font-semibold uppercase tracking-[0.35em] text-base-content/60 aa-d">AuralArchive</span>
+                    <h1 class="aa-topbar-title aa-m">{{ mnav.title }}</h1>
                     {# Right-hand cluster; ml-auto keeps it (and the bell, last) at the top right even when the title is hidden. #}
                     <div class="flex items-center gap-3 ml-auto">
                         <form action="{{ url_for('search.search_page') }}" method="get" class="form-control hidden md:block">
@@ -230,6 +236,9 @@
                             </div>
                         </form>
                         {% if current_user.is_authenticated %}
+                        {% if request.endpoint != 'search.search_page' %}
+                        <a href="{{ url_for('search.search_page') }}" class="btn btn-ghost btn-square aa-m" aria-label="Search"><i class="fas fa-search text-base" aria-hidden="true"></i></a>
+                        {% endif %}
                         <div class="dropdown dropdown-end" id="notifDropdown">
                             <button type="button" tabindex="0" id="notifButton" class="btn btn-ghost btn-sm btn-circle aa-alert-btn"
                                     aria-label="Notifications" aria-haspopup="true">
@@ -242,6 +251,7 @@
                                     <div class="flex gap-1">
                                         <button type="button" id="notifReadAll" class="btn btn-ghost btn-xs">Mark all read</button>
                                         <button type="button" id="notifClearAll" class="btn btn-ghost btn-xs">Clear all</button>
+                                        <button type="button" id="notifClose" class="btn btn-ghost btn-xs btn-square aa-m" aria-label="Close notifications"><i class="fas fa-xmark" aria-hidden="true"></i></button>
                                     </div>
                                 </div>
                                 <ul id="notifList" class="aa-notif-list" aria-live="polite"></ul>
@@ -270,12 +280,14 @@
                         <span>{{ secrets_decrypt_failures }} saved credential(s) could not be decrypted. The encryption key file in the config directory was probably lost or replaced. Restore it to recover them, or re-enter the affected passwords/API keys.</span>
                     </div>
                     {% endif %}
+                    {{ mnav.segment_row() }}
                     {% block content %}{% endblock %}
                 </div>
             </main>
         </div>
     </div>
     <label for="layout-drawer" aria-hidden="true" class="layout-overlay"></label>
+    {% if current_user.is_authenticated %}{{ mnav.tab_bar() }}{% endif %}
 
     {% include 'partials/confirm_dialog.html' %}
 
@@ -370,8 +382,9 @@
             el.addEventListener('mouseenter', () => clearTimeout(timer), { once: true });
         }
     </script>
-    <script src="{{ url_for('static', filename='js/status-bar.js') }}?v=2" defer></script>
-    <script src="{{ url_for('static', filename='js/notifications.js') }}?v=3" defer></script>
+    <script src="{{ url_for('static', filename='js/status-bar.js') }}?v=3" defer></script>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}?v=5" defer></script>
+    <script src="{{ url_for('static', filename='js/mobile.js') }}?v=1" defer></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

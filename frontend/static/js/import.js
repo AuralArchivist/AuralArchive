@@ -78,6 +78,13 @@
         elements.metadataSearchForm?.addEventListener('submit', handleMetadataSearchSubmit);
         elements.metadataApplyAsinBtn?.addEventListener('click', applyManualAsin);
         elements.metadataSearchModal?.addEventListener('close', resetMetadataSearchState);
+        document.querySelectorAll('[data-import-step]').forEach((button) => {
+            button.addEventListener('click', () => setImportStep(button.dataset.importStep));
+        });
+        document.getElementById('stageNextBtn')?.addEventListener('click', () => {
+            setImportStep('review');
+            handleStageBatch();
+        });
         elements.uploadFileBtn?.addEventListener('click', () => elements.uploadFileInput?.click());
         elements.uploadFileInput?.addEventListener('change', handleFileUpload);
 
@@ -352,10 +359,27 @@
         }
     }
 
+    // Phones show one step at a time: pick files, then review and import
+    function setImportStep(step) {
+        document.querySelector('.import-cols').dataset.step = step;
+        document.querySelectorAll('[data-import-step]').forEach((button) => {
+            button.setAttribute('aria-pressed', String(button.dataset.importStep === step));
+        });
+        window.scrollTo(0, 0);
+    }
+
+    function renderPickBar() {
+        const count = state.selectedEntries.length;
+        document.getElementById('importPickCount').textContent = count
+            ? `${count} selected` : 'No files selected';
+        document.getElementById('stageNextBtn').disabled = !count;
+    }
+
     function renderSelectedFiles() {
         if (!elements.selectedFilesContainer) {
             return;
         }
+        renderPickBar();
 
         if (!state.selectedEntries.length) {
             elements.selectedFilesContainer.innerHTML = '<span class="text-base-content/50">No sources selected yet.</span>';

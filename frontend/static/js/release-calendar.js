@@ -209,13 +209,18 @@
                 <div class="rcal-hero">
                     <div><h2>Release Calendar</h2><p>Upcoming and recent titles from your watches, plus everything on your wanted list.</p></div>
                     <div class="rcal-hero-actions">
+                        <button type="button" class="rcal-btn rcal-filter-btn" data-panel-open="rcalRail"><i class="fas fa-filter"></i> Filter</button>
                         <a class="rcal-btn" href="/settings#discovery"><i class="fas fa-sliders"></i> Manage watches</a>
                         <button type="button" class="rcal-btn rcal-btn--primary" data-rcal-refresh><i class="fas fa-rotate"></i> Refresh</button>
                     </div>
                 </div>
                 <div class="rcal-stats">${this.statsHtml()}</div>
                 <div class="rcal-layout">
-                    <aside class="rcal-rail">
+                    <aside class="rcal-rail aa-panel" id="rcalRail">
+                        <div class="aa-panel-head aa-m">
+                            <h2>Jump to date and filter</h2>
+                            <button type="button" class="btn btn-ghost btn-square" data-panel-close aria-label="Close"><i class="fas fa-xmark"></i></button>
+                        </div>
                         <div class="rcal-box">
                             <div class="rcal-box-head">Jump to date</div>
                             <div class="rcal-mini" data-rcal-mini></div>
@@ -289,7 +294,7 @@
                 const cls = ["rcal-mini-day", day.getMonth() !== first.getMonth() && "is-out", n && "has",
                     key === today && "is-today", this.selectedDay === key && "is-selected", wanted[key] && "has-wanted"].filter(Boolean).join(" ");
                 const heat = n ? `<span class="rcal-heat" style="width:${6 + 14 * n / max}px;opacity:${0.35 + 0.65 * n / max}"></span>` : "";
-                cells += `<button type="button" class="${cls}" ${n ? `data-rcal-jump="${key}"` : "disabled"} title="${n ? `${n} title${n === 1 ? "" : "s"}` : ""}">${day.getDate()}${heat}</button>`;
+                cells += `<button type="button" class="${cls}" ${n ? `data-rcal-jump="${key}" data-panel-close` : "disabled"} title="${n ? `${n} title${n === 1 ? "" : "s"}` : ""}">${day.getDate()}${heat}</button>`;
             }
             host.innerHTML = `
                 <div class="rcal-mini-head">

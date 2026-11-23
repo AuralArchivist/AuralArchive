@@ -22,7 +22,12 @@
         <ul id="importReviewList" class="import-review-list"></ul>
     </section>
 
-    <div class="import-cols">
+    <nav class="import-steps aa-m" aria-label="Import steps">
+        <button type="button" data-import-step="pick" aria-pressed="true"><b>1</b> Pick files</button>
+        <button type="button" data-import-step="review" aria-pressed="false"><b>2</b> Review and import</button>
+    </nav>
+
+    <div class="import-cols" data-step="pick">
 
         <div class="import-col-left border-r border-base-content/10" role="region" aria-label="Browse staging files">
 
@@ -223,6 +228,11 @@
         </div>
     </div>
 
+    <div id="importPickBar" class="import-pickbar aa-m">
+        <span id="importPickCount">No files selected</span>
+        <button type="button" id="stageNextBtn" class="btn btn-primary" disabled>Stage files</button>
+    </div>
+
 </div>
 
 <div id="importResultCard" class="hidden border-t border-base-content/10 px-6 py-5 bg-base-100">
@@ -325,6 +335,6 @@ window.importPageData = {
     uploadEndpoint: "{{ url_for('import_api.upload_import_files') }}"
 };
 </script>
-<script src="{{ url_for('static', filename='js/import.js') }}?v=5" defer></script>
+<script src="{{ url_for('static', filename='js/import.js') }}?v=6" defer></script>
 <script src="{{ url_for('static', filename='js/import_review.js') }}?v=2" defer></script>
 {% endblock %}

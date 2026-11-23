@@ -2,7 +2,7 @@
 Module Name: manual.py
 Author: AuralArchivist
 Created: June 22, 2025
-Last Modified: November 7, 2026
+Last Modified: November 23, 2026
 Description:
     Manual Download and Search REST API. Provides manual and automatic search
     controls, queue operations, ownership checks, and metadata normalization to
@@ -48,6 +48,7 @@ from core.logging import get_module_logger
 from core.text import normalize_search_terms
 from services.container import container
 from integrations.audible.ownership_validator import assess_audible_ownership, fetch_audible_library_entry
+from integrations.indexers.providers.myanonamouse import needs_fl_wedge, with_fl_wedge
 from services.acquisition.search.book_matcher import BookMatcher
 from services.acquisition.search.query_variants import (
     clean_series_name as _clean_series_name,
@@ -655,14 +656,8 @@ def initiate_manual_download():
                 'success': False,
                 'error': 'This search result has expired. Run the search again and pick the result from the new list.'
             }), 400
-        if (
-            result.get('use_fl_wedge')
-            and not result.get('freeleech')
-            and download_url
-            and any(str(key).startswith('mam_') for key in result.keys())
-        ):
-            separator = '&' if '?' in download_url else '?'
-            download_url = f"{download_url}{separator}fl"
+        if result.get('use_fl_wedge') and needs_fl_wedge(result):
+            download_url = with_fl_wedge(download_url)
             logger.info("Spending a MAM freeleech wedge on download for book %s", book_asin)
 
         queue_kwargs = {

@@ -6,6 +6,7 @@
     const panelEl = document.getElementById('sidebarActivity');
     const listEl   = document.getElementById('sidebarActivityList');
     const queueEl  = document.getElementById('sidebarActivityQueue');
+    const tabBadgeEl = document.getElementById('tabActivityBadge');
 
     if (!listEl) return;
 
@@ -304,7 +305,18 @@
         });
     }
 
+    // Phone tab bar: running tasks plus folders waiting for import review
+    function renderTabBadge() {
+        if (!tabBadgeEl) return;
+        var count = Number(tabBadgeEl.dataset.reviews || 0) + allEvents.filter(function(e) {
+            return ACTIVE_STATES.has((e.state || '').toLowerCase());
+        }).length;
+        tabBadgeEl.textContent = count || '';
+        tabBadgeEl.classList.toggle('hidden', !count);
+    }
+
     function render() {
+        renderTabBadge();
         if (!currentEvents.length) {
             panelEl.style.display = 'none';
             return;

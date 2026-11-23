@@ -30,8 +30,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeFilters();
     initializeSelectionMode();
     initializeBookCards();
+    initializeBookActionsSheet();
     initializeBulkActions();
     initializeSizeSlider();
+    initializeGridColumns();
     initializeViewModes();
     initializeLazyGrid();
 
@@ -68,6 +70,23 @@ function initializeSizeSlider() {
         applySizeClass(value);
         localStorage.setItem('libraryCardSize', value);
     });
+}
+
+// Phones pick 3 or 2 columns instead of the density slider
+function initializeGridColumns() {
+    const grid = document.getElementById('booksGrid');
+    const buttons = document.querySelectorAll('[data-columns]');
+    if (!grid || !buttons.length) return;
+
+    const apply = (cols) => {
+        grid.classList.toggle('cols-2', cols === '2');
+        buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.columns === cols)));
+    };
+    apply(localStorage.getItem('libraryPhoneColumns') || '3');
+    buttons.forEach(b => b.addEventListener('click', () => {
+        localStorage.setItem('libraryPhoneColumns', b.dataset.columns);
+        apply(b.dataset.columns);
+    }));
 }
 
 function applySizeClass(value) {
@@ -140,7 +159,7 @@ function initializeFilters() {
         applyFilters();
     });
 
-    clearBtn?.addEventListener('click', () => {
+    const clearFilters = () => {
         searchInput.value = '';
         statusFilter.value = '';
         if (sourceFilter) sourceFilter.value = '';
@@ -161,7 +180,43 @@ function initializeFilters() {
         
         applyFilters();
         showNotification('Filters cleared', 'info');
+    };
+    clearBtn?.addEventListener('click', clearFilters);
+    document.querySelectorAll('[data-clear-filters]').forEach(b => b.addEventListener('click', clearFilters));
+
+    document.getElementById('activeFilterChips')?.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-filter-id]');
+        if (!chip) return;
+        const select = document.getElementById(chip.dataset.filterId);
+        select.value = '';
+        select.dispatchEvent(new Event('change'));
     });
+}
+
+// Phone toolbar: active filter chips, the filter count and the book count
+const CHIP_FILTERS = ['statusFilter', 'sourceFilter', 'libraryFilter', 'listeningFilter', 'genreFilter'];
+
+function renderFilterSummary() {
+    const chipsEl = document.getElementById('activeFilterChips');
+    if (!chipsEl) return;
+
+    const active = CHIP_FILTERS.map(id => document.getElementById(id)).filter(sel => sel && sel.value);
+    chipsEl.innerHTML = active.map(sel => `
+        <button type="button" class="library-chip" data-filter-id="${sel.id}" aria-label="Remove filter ${AA.escapeHtml(sel.selectedOptions[0].text)}">
+            ${AA.escapeHtml(sel.selectedOptions[0].text)}<i class="fas fa-xmark" aria-hidden="true"></i>
+        </button>`).join('')
+        + (active.length ? '<button type="button" class="library-chip-clear">Clear</button>' : '');
+    chipsEl.querySelector('.library-chip-clear')?.addEventListener('click', () => document.getElementById('clearFiltersBtn').click());
+    chipsEl.classList.toggle('hidden', !active.length);
+
+    const countEl = document.getElementById('filterCount');
+    countEl.textContent = active.length;
+    countEl.classList.toggle('hidden', !active.length);
+
+    const total = LibraryState.books.length;
+    const shown = LibraryState.filteredBooks.length;
+    document.getElementById('libraryCount').textContent = shown === total ? `${total} books` : `${shown} of ${total} books`;
+    document.getElementById('filterShowBtn').textContent = `Show ${shown} book${shown === 1 ? '' : 's'}`;
 }
 
 function applyFilters() {
@@ -214,6 +269,7 @@ function applyFilters() {
     });
 
     LibraryState.filteredBooks = filtered;
+    renderFilterSummary();
 
     if (LibraryState.viewMode === 'table') {
         if (LazyState.observer) LazyState.observer.disconnect();
@@ -431,11 +487,15 @@ function createBookCard(book) {
 
             ${listeningBadge(book)}
 
+            <button type="button" class="book-card-menu aa-m" onclick="event.stopPropagation(); openBookActions(${book.id})" aria-label="Actions for ${escapeHtml(book.title || 'book')}">
+                <i class="fas fa-ellipsis-vertical" aria-hidden="true"></i>
+            </button>
+
             <div class="absolute top-2 left-2 selection-checkbox hidden">
                 <input type="checkbox" class="checkbox checkbox-primary checkbox-sm shadow-lg bg-base-100" aria-label="Select ${escapeHtml(book.title || 'book')}" />
             </div>
 
-            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-center pb-3">
+            <div class="book-card-hover absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-center pb-3">
                 <div class="flex gap-1">
                     <button class="btn btn-soft btn-primary btn-xs shadow-lg" onclick="event.stopPropagation(); openBookModal(${book.id})" title="Book Details">
                         <i class="fas fa-info"></i>
@@ -540,6 +600,30 @@ function initializeBookCards() {
         } else {
             openBookModal(bookId);
         }
+    });
+}
+
+// Phones have no hover, so each card's actions open in a bottom sheet
+function openBookActions(bookId) {
+    const book = LibraryState.books.find(b => String(b.id) === String(bookId));
+    const sheet = document.getElementById('bookActionsSheet');
+    sheet.dataset.bookId = bookId;
+    document.getElementById('bookActionsTitle').textContent = book?.title || '';
+    sheet.showModal();
+}
+
+function initializeBookActionsSheet() {
+    const sheet = document.getElementById('bookActionsSheet');
+    if (!sheet) return;
+    sheet.addEventListener('click', (e) => {
+        const button = e.target.closest('[data-book-action]');
+        if (!button) return;
+        const bookId = sheet.dataset.bookId;
+        const book = LibraryState.books.find(b => String(b.id) === String(bookId));
+        sheet.close();
+        if (button.dataset.bookAction === 'details') openBookModal(bookId);
+        else if (button.dataset.bookAction === 'search') searchForBook(bookId, book?.title || '', book?.author || '');
+        else autoDownloadBook(bookId);
     });
 }
 
@@ -1797,25 +1881,25 @@ function displaySearchResults(results, bookId, sortBy) {
         }
 
         row.innerHTML = `
-            <td>${titleCell}</td>
-            <td>
+            <td class="sr-title">${titleCell}</td>
+            <td data-label="Format">
                 <span class="badge badge-sm ${isAudibleDirect ? 'badge-primary' : 'badge-outline'}">
                     ${isAudibleDirect ? 'Audible' : escapeHtml(format)}
                 </span>
                 ${bitrate ? `<div class="text-xs text-base-content/60 mt-1">${escapeHtml(bitrate)}</div>` : ''}
             </td>
-            <td>${isAudibleDirect ? '—' : escapeHtml(sizeFormatted)}</td>
-            <td>
+            <td data-label="Size">${isAudibleDirect ? '—' : escapeHtml(sizeFormatted)}</td>
+            <td data-label="Match">
                 <span class="badge ${matchClass} badge-sm">
                     ${matchConfidence > 0 ? matchConfidence.toFixed(0) + '%' : isAudibleDirect ? '100%' : 'N/A'}
                 </span>
             </td>
-            <td>
+            <td data-label="Quality">
                 <span class="badge ${releaseQualityClass} badge-sm">
                     ${releaseQuality > 0 ? releaseQuality.toFixed(0) + '%' : isAudibleDirect ? '100%' : 'N/A'}
                 </span>
             </td>
-            <td>
+            <td data-label="Seeders/Peers">
                 <div class="flex items-center gap-2 text-xs">
                     ${isAudibleDirect ? '<span class="badge badge-success badge-sm">owned</span>' : `
                     <span class="badge ${isAudiobookBay ? 'badge-success' : seeders > 10 ? 'badge-success' : seeders > 0 ? 'badge-warning' : 'badge-error'} badge-sm">
@@ -1826,12 +1910,12 @@ function displaySearchResults(results, bookId, sortBy) {
                     </span>`}
                 </div>
             </td>
-            <td>${flCell}</td>
-            <td>${statusCell}</td>
-            <td class="text-xs">
+            <td data-label="FL/VIP">${flCell}</td>
+            <td data-label="Status">${statusCell}</td>
+            <td data-label="Source" class="text-xs">
                 <span ${uploaderTitleAttr}>${escapeHtml(result.indexer || result.source || (isAudibleDirect ? 'Audible Library' : 'Unknown'))}</span>
             </td>
-            <td>
+            <td class="sr-action">
                 <div class="flex items-center gap-2">
                     <button type="button" class="btn ${isAudibleDirect ? 'btn-primary' : 'btn-soft btn-primary'} btn-xs manual-download-btn">
                         <i class="fas fa-download"></i> ${isAudibleDirect ? 'Download from Audible' : 'Download'}

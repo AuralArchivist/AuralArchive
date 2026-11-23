@@ -2,7 +2,7 @@
 Module Name: myanonamouse.py
 Author: AuralArchivist
 Created: August 26, 2025
-Last Modified: October 9, 2026
+Last Modified: November 23, 2026
 Description:
     Direct provider adapter for MyAnonamouse JSON search API with filtering to
     audiobook categories and rejection of ebook results.
@@ -25,6 +25,17 @@ from . import register_provider
 
 
 _LOGGER = get_module_logger("Service.Indexers.MyAnonamouse")
+
+
+def needs_fl_wedge(result: Dict[str, Any]) -> bool:
+    """True for a release from this adapter that isn't already freeleech, VIP or a personal freeleech."""
+    # Results from other indexers carry the mam_* keys as None
+    return isinstance(result.get("mam_free"), bool) and not result.get("freeleech")
+
+
+def with_fl_wedge(url: str) -> str:
+    """The download link that spends a freeleech wedge on the release."""
+    return f"{url}{'&' if '?' in url else '?'}fl"
 
 
 @register_provider

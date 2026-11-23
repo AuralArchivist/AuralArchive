@@ -2,7 +2,7 @@
 Module Name: service.py
 Author: AuralArchivist
 Created: August 26, 2025
-Last Modified: October 9, 2026
+Last Modified: November 23, 2026
 Description:
     The download service: one shared instance that loads the download
     settings and joins the pipeline stages from the modules beside it.
@@ -125,6 +125,9 @@ class DownloadManagementService(
         self.prefer_freeleech = False
         self.hold_non_freeleech = False
         self.freeleech_hold_days = 14
+        self.auto_fl_wedge = False
+        self.fl_wedge_reserve = 0
+        self.fl_wedge_when_out = 'download'
         self.duplicate_grab_protection = True
 
         self._initialize_service()
@@ -244,6 +247,10 @@ class DownloadManagementService(
                 self.prefer_freeleech = to_bool(dm_config.get('prefer_freeleech', self.prefer_freeleech), self.prefer_freeleech)
                 self.hold_non_freeleech = to_bool(dm_config.get('hold_non_freeleech', self.hold_non_freeleech), self.hold_non_freeleech)
                 self.freeleech_hold_days = max(0, to_int(dm_config.get('freeleech_hold_days', self.freeleech_hold_days), self.freeleech_hold_days))
+                self.auto_fl_wedge = to_bool(dm_config.get('auto_fl_wedge', self.auto_fl_wedge), self.auto_fl_wedge)
+                self.fl_wedge_reserve = max(0, to_int(dm_config.get('fl_wedge_reserve', self.fl_wedge_reserve), self.fl_wedge_reserve))
+                when_out = str(dm_config.get('fl_wedge_when_out') or self.fl_wedge_when_out).strip().lower()
+                self.fl_wedge_when_out = when_out if when_out in {'download', 'wait'} else self.fl_wedge_when_out
                 self.duplicate_grab_protection = to_bool(dm_config.get('duplicate_grab_protection', self.duplicate_grab_protection), self.duplicate_grab_protection)
 
                 self.retry_limits = {
